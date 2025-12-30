@@ -215,17 +215,25 @@ async def ping_handler(event, client):
         me = await client.get_me()
         akun_nama = me.first_name or "Akun"
 
-        # Status emoji 
-        if ms < 100: 
-            status = "🟢 Super cepat" 
-        elif ms < 300: 
-            status = "🟡 Lumayan" 
-        else: 
-            status = "🔴 Lambat"
+        # Status emoji
+        if ms < 30:
+            status = "⚡️ Ultra Instan" 
+        elif ms < 75:
+            status = "💨 Super Cepat"
+        elif ms < 150:
+            status = "🟢 Cepat Stabil"
+        elif ms < 250:
+            status = "🟡 Cukup Lancar"
+        elif ms < 400:
+            status = "🟠 Agak Berat"
+        elif ms < 700:
+            status = "🔴 Sangat Lambat"
+        else:
+            status = "⚫️ Nyaris Down"
 
         text = (
-            f"🏓 **PONG!** 🏓\n"
-            f"⚡ Latency: `{ms} ms`\n\n"
+            f"🏓 **PONG!** 🏓\n\n"
+            f"⚡ Latency: `{ms} ms`\n"
             f"👤 **Akun:** {akun_nama}\n"
             f"⏱ **Uptime:** `{uptime_str}`\n"
             f"📡 **Status:** {status}\n"
@@ -249,9 +257,25 @@ async def heartbeat(client, log_admin, log_channel, akun_nama):
             uptime_str = str(uptime).split('.')[0]
             server_time = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%H:%M:%S || %d-%m-%Y")
 
-            acc = next((a for a in accounts if a["session"] == client.session.save()), None)
-            fitur_list = acc["features"] if acc else []
-            fitur_str = " | ".join(fitur_list) if fitur_list else "Tidak ada"
+            start = datetime.now()
+            end = datetime.now()
+            ms = (end - start).microseconds // 1000
+            
+            # Status emoji
+            if ms < 30:
+                status = "⚡️ Ultra Instan" 
+            elif ms < 75:
+                status = "💨 Super Cepat"
+            elif ms < 150:
+                status = "🟢 Cepat Stabil"
+            elif ms < 250:
+                status = "🟡 Cukup Lancar"
+            elif ms < 400:
+                status = "🟠 Agak Berat"
+            elif ms < 700:
+                status = "🔴 Sangat Lambat"
+            else:
+                status = "⚫️ Nyaris Down"
 
 
             if last_msg_id:
@@ -264,8 +288,8 @@ async def heartbeat(client, log_admin, log_channel, akun_nama):
             text = (
                 f"💓 **HEARTBEAT CHECK** 💓\n\n"
                 f"👤 Akun: {akun_nama}\n"
-                f"⚙️ Fitur aktif: {fitur_str}\n"
                 f"⏱ Uptime: `{uptime_str}`\n"
+                f"📡 **Status:** {status}\n"
                 f"🕒 Server: {server_time}\n"
             )
 
@@ -1527,7 +1551,7 @@ async def main():
         text = (
             f"♻️ **Ubot Aktif**\n\n"
             f"👤 Akun: {akun_nama}\n"
-            f"⚙️ Fitur: {fitur_str}\n"
+            f"⚙️ Fitur: [{fitur_str}]\n"
             f"🕒 Waktu: {datetime.now(ZoneInfo('Asia/Jakarta')).strftime('%H:%M:%S || %d-%m-%Y')}\n"
             f"📡 Status: 🟢 Online"
         )
