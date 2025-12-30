@@ -40,9 +40,6 @@ from telethon.tl.types import (
     InputPrivacyValueDisallowAll, InputPrivacyValueAllowUsers,
     InputPhoto
 )
-import speech_recognition as sr
-from pydub import AudioSegment
-import whisper
 
 
 
@@ -64,8 +61,7 @@ ACCOUNTS = [
             "save_media",
             "clearch",
             "whois",
-            "downloader",
-            "vn2text"
+            "downloader"
 
         ],
     }
@@ -79,48 +75,6 @@ start_time_global = datetime.now()
 
 
 
-
-# === FITUR: VN TO TEXT ===
-# Load model sekali di awal (misalnya di global scope)
-whisper_model = whisper.load_model("small")  # bisa "base", "small", "medium", "large"
-
-async def vn_to_text_handler(event, client):
-    if not event.is_private:
-        return
-
-    if not event.is_reply:
-        await event.reply("❌ Harus reply ke VN (voice note).")
-        return
-
-    reply = await event.get_reply_message()
-    if not reply or not reply.voice:
-        await event.reply("❌ Pesan yang direply bukan VN.")
-        return
-
-    try:
-        # Download file VN
-        file_path = await client.download_media(reply.media)
-        if not file_path:
-            await event.reply("❌ Gagal download VN.")
-            return
-
-        # Transkripsi dengan Whisper
-        result = whisper_model.transcribe(file_path, language="id")
-
-        text = result.get("text", "").strip()
-        if not text:
-            text = "❌ Tidak bisa mengenali suara."
-
-        await event.reply(f"📝 **Hasil VN ke Text (Whisper):**\n\n{text}")
-
-        # Hapus file sementara
-        try:
-            os.remove(file_path)
-        except:
-            pass
-
-    except Exception as e:
-        await event.reply(f"⚠ Error VN to Text: `{e}`")
 
 
 
@@ -1550,12 +1504,6 @@ async def main():
             events.NewMessage()
           )
           
-        # === VN TO TEXT ===
-        if "vn2text" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/vn2text$"))
-            async def vn2text(event, c=client):
-                await vn_to_text_handler(event, c)
-
 
         # === INFO RESTART ===
         text = (
