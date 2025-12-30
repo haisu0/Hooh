@@ -4,8 +4,3 @@ requests
 httpx
 beautifulsoup4
 yt-dlp
-speechrecognition
-pydub
-openai-whisper
-torch
-ffmpeg-python
