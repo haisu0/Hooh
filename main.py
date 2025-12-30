@@ -42,6 +42,8 @@ from telethon.tl.types import (
 )
 import speech_recognition as sr
 from pydub import AudioSegment
+import whisper
+
 
 
 
@@ -79,11 +81,13 @@ start_time_global = datetime.now()
 
 
 # === FITUR: VN TO TEXT ===
+# Load model sekali di awal (misalnya di global scope)
+whisper_model = whisper.load_model("small")  # bisa "base", "small", "medium", "large"
+
 async def vn_to_text_handler(event, client):
     if not event.is_private:
         return
 
-    # Pastikan ini reply ke pesan
     if not event.is_reply:
         await event.reply("❌ Harus reply ke VN (voice note).")
         return
@@ -100,34 +104,24 @@ async def vn_to_text_handler(event, client):
             await event.reply("❌ Gagal download VN.")
             return
 
-        # Konversi ke format wav agar bisa dibaca speech_recognition
-        sound = AudioSegment.from_file(file_path)
-        wav_path = file_path + ".wav"
-        sound.export(wav_path, format="wav")
+        # Transkripsi dengan Whisper
+        result = whisper_model.transcribe(file_path, language="id")
 
-        # Gunakan speech recognition
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_path) as source:
-            audio_data = recognizer.record(source)
-
-        try:
-            text = recognizer.recognize_google(audio_data, language="id-ID")
-        except sr.UnknownValueError:
+        text = result.get("text", "").strip()
+        if not text:
             text = "❌ Tidak bisa mengenali suara."
-        except sr.RequestError as e:
-            text = f"⚠ Error Speech API: {e}"
 
-        await event.reply(f"📝 **Hasil VN ke Text:**\n\n{text}")
+        await event.reply(f"📝 **Hasil VN ke Text (Whisper):**\n\n{text}")
 
         # Hapus file sementara
         try:
             os.remove(file_path)
-            os.remove(wav_path)
         except:
             pass
 
     except Exception as e:
         await event.reply(f"⚠ Error VN to Text: `{e}`")
+
 
 
 # === Fungsi Normalisasi ===
