@@ -4,3 +4,5 @@ requests
 httpx
 beautifulsoup4
 yt-dlp
+speechrecognition
+pydub
