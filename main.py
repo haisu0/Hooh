@@ -1577,10 +1577,11 @@ async def main():
             events.NewMessage()
           )
 
-        if "hilih" in akun["features"]:
-            @client.on(events.NewMessage(pattern=r'^/h([aiueo])l\1h(?: (.+))?'))
-            async def _(event):
-                await hilih_handler(event, client)
+        # === HILIH ===
+        if "hilih" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/h([aiueo])l\1h(?: (.+))?"))
+            async def hilih(event, c=client):
+                await hilih_handler(event, c)
 
           
 
