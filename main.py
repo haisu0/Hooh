@@ -111,6 +111,7 @@ async def hilih_handler(event, client):
     await event.reply(output)
 
 
+
 # === CLASS TIC TAC TOE ===
 class TicTacToe:
     def __init__(self, player_x):
@@ -151,6 +152,7 @@ class TicTacToe:
         return self.winner
 
 
+# === STATE GAME PER CHAT ===
 def _ensure_game_state(client, chat_id):
     if not hasattr(client, "game_rooms"):
         client.game_rooms = {}
@@ -158,42 +160,46 @@ def _ensure_game_state(client, chat_id):
         client.game_rooms[chat_id] = {}
 
 
-# === HANDLER BUAT/JOIN ROOM ===
+# === HANDLER BUAT / JOIN ROOM ===
 async def tictactoe_handler(event, client):
-    if not event.is_private: return
-    me = await client.get_me()
-
     chat_id = event.chat_id
     sender = event.sender_id
-    room_name = (event.pattern_match.group(1) or "").strip()
     _ensure_game_state(client, chat_id)
 
     # Cari room waiting
-    room = None
+    waiting_room = None
     for r in client.game_rooms[chat_id].values():
-        if r["state"] == "WAITING" and (room_name == "" or r.get("name") == room_name):
-            room = r; break
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
 
-    if room:
-        room["game"].playerO = sender
-        room["playerO"] = sender
-        room["state"] = "PLAYING"
-        arr = room["game"].render()
+    if waiting_room:
+        # Cek apakah yang join adalah pembuat room
+        if sender == waiting_room["playerX"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu orang lain untuk join.")
+            return
+
+        # Join sebagai O
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+
+        arr = waiting_room["game"].render()
         board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
-        msg = (f"Partner ditemukan!\nRoom ID: {room['id']}\n\n{board}\n\n"
-               f"Menunggu giliran <code>{room['game'].currentTurn}</code>\n"
-               f"Ketik angka 1-9 untuk jalan\nKetik /nyerah untuk nyerah")
-        await event.reply(msg, parse_mode="html")
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
+               f"Giliran <code>{waiting_room['game'].currentTurn}</code>")
+        await event.respond(msg, parse_mode="html")
     else:
+        # Buat room baru
         room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
         game = TicTacToe(sender)
         new_room = {"id": room_id,"game": game,"playerX": sender,
-                    "playerO": None,"state": "WAITING","name": room_name if room_name else None}
+                    "playerO": None,"state": "WAITING"}
         client.game_rooms[chat_id][room_id] = new_room
-        await event.reply("Menunggu partner...")
+        await event.respond("Menunggu partner join...\nGunakan /tictactoe untuk join.")
 
 
-# === HANDLER LANGKAH TIC TAC TOE (angka 1–9) ===
+# === HANDLER LANGKAH ANGKA 1–9 ===
 async def tictactoe_move_handler(event, client):
     if not event.is_private:
         return
@@ -215,7 +221,7 @@ async def tictactoe_move_handler(event, client):
 
     game = room["game"]
 
-    # === CEK GILIRAN ===
+    # Cek giliran
     if event.sender_id != game.currentTurn:
         await event.reply("❌ Bukan giliran kamu.")
         return
@@ -240,33 +246,35 @@ async def tictactoe_move_handler(event, client):
         except:
             pass
     else:
-        msg = f"{board}\n\nMenunggu giliran <code>{game.currentTurn}</code>"
+        msg = f"{board}\n\nGiliran <code>{game.currentTurn}</code>"
 
     await event.reply(msg, parse_mode="html")
 
 
-
-# === HANDLER NYERAH ===
+# === HANDLER MENYERAH ===
 async def tictactoe_surrender_handler(event, client):
-    if not event.is_private: return
-    me = await client.get_me()
-
     chat_id = event.chat_id
+    sender = event.sender_id
     _ensure_game_state(client, chat_id)
 
     room = None
     for r in client.game_rooms[chat_id].values():
-        if r["state"] == "PLAYING": room = r; break
+        if r["state"] == "PLAYING":
+            room = r
+            break
     if not room:
-        await event.reply("Tidak ada game aktif."); return
+        return
 
     game = room["game"]
-    opponent = game.playerO if game.currentTurn == game.playerX else game.playerX
+    opponent = game.playerO if sender == game.playerX else game.playerX
     room["state"] = "FINISHED"
-    msg = f"🏳️ Game disudahi!\n\n🏆 Pemenang otomatis: <code>{opponent}</code>"
-    try: del client.game_rooms[chat_id][room["id"]]
-    except: pass
-    await event.reply(msg, parse_mode="html")
+    try:
+        del client.game_rooms[chat_id][room["id"]]
+    except:
+        pass
+    await event.respond(f"🏳️ Pemain <code>{sender}</code> menyerah!\n\n🏆 Pemenang otomatis: <code>{opponent}</code>",
+                        parse_mode="html")
+
 
 
 
