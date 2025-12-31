@@ -193,26 +193,37 @@ async def tictactoe_handler(event, client):
         await event.reply("Menunggu partner...")
 
 
-# === HANDLER LANGKAH ===
+# === HANDLER LANGKAH TIC TAC TOE (angka 1–9) ===
 async def tictactoe_move_handler(event, client):
-    if not event.is_private: return
-    me = await client.get_me()
+    if not event.is_private:
+        return
 
     chat_id = event.chat_id
     text = event.raw_text.strip()
-    if text not in [str(i) for i in range(1, 10)]: return
+    if text not in [str(i) for i in range(1, 10)]:
+        return
+
     _ensure_game_state(client, chat_id)
 
     room = None
     for r in client.game_rooms[chat_id].values():
-        if r["state"] == "PLAYING": room = r; break
-    if not room: return
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
 
     game = room["game"]
+
+    # === CEK GILIRAN ===
+    if event.sender_id != game.currentTurn:
+        await event.reply("❌ Bukan giliran kamu.")
+        return
+
     pos = int(text)
-    player_to_move = game.currentTurn
-    if not game.move(player_to_move, pos):
-        await event.reply("❌ Posisi sudah terisi."); return
+    if not game.move(event.sender_id, pos):
+        await event.reply("❌ Posisi sudah terisi atau tidak valid.")
+        return
 
     arr = game.render()
     board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
@@ -224,12 +235,15 @@ async def tictactoe_move_handler(event, client):
             winner_emoji = "❌" if game.winner == "X" else "⭕"
             msg = f"{board}\n\n🏆 Pemenang: {winner_emoji}"
         room["state"] = "FINISHED"
-        try: del client.game_rooms[chat_id][room["id"]]
-        except: pass
+        try:
+            del client.game_rooms[chat_id][room["id"]]
+        except:
+            pass
     else:
         msg = f"{board}\n\nMenunggu giliran <code>{game.currentTurn}</code>"
 
     await event.reply(msg, parse_mode="html")
+
 
 
 # === HANDLER NYERAH ===
