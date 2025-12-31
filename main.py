@@ -170,6 +170,12 @@ async def tictactoe_handler(event, client):
     sender = event.sender_id
     _ensure_game_state(client, chat_id)
 
+    # Cek apakah sudah ada room PLAYING di chat ini
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada game berjalan di chat ini.\nGunakan /nyerah untuk mengakhiri sebelum buat room baru.")
+            return
+
     # Cari room waiting
     waiting_room = None
     for r in client.game_rooms[chat_id].values():
