@@ -112,6 +112,10 @@ async def hilih_handler(event, client):
 
 
 
+from telethon import events
+from datetime import datetime
+import random
+
 # === CLASS TIC TAC TOE ===
 class TicTacToe:
     def __init__(self, player_x):
@@ -184,10 +188,13 @@ async def tictactoe_handler(event, client):
         waiting_room["playerO"] = sender
         waiting_room["state"] = "PLAYING"
 
+        # Tentukan giliran pertama secara acak
+        waiting_room["game"].currentTurn = random.choice([waiting_room["playerX"], waiting_room["playerO"]])
+
         arr = waiting_room["game"].render()
         board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
         msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
-               f"Giliran <code>{waiting_room['game'].currentTurn}</code>")
+               f"Giliran pertama: <code>{waiting_room['game'].currentTurn}</code>")
         await event.respond(msg, parse_mode="html")
     else:
         # Buat room baru
@@ -201,9 +208,6 @@ async def tictactoe_handler(event, client):
 
 # === HANDLER LANGKAH ANGKA 1–9 ===
 async def tictactoe_move_handler(event, client):
-    if not event.is_private:
-        return
-
     chat_id = event.chat_id
     text = event.raw_text.strip()
     if text not in [str(i) for i in range(1, 10)]:
@@ -274,6 +278,40 @@ async def tictactoe_surrender_handler(event, client):
         pass
     await event.respond(f"🏳️ Pemain <code>{sender}</code> menyerah!\n\n🏆 Pemenang otomatis: <code>{opponent}</code>",
                         parse_mode="html")
+
+
+# === HANDLER BATALKAN ROOM (hanya kalau belum ada yang join) ===
+async def tictactoe_cancel_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_game_state(client, chat_id)
+
+    room = None
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            room = r
+            break
+    if not room:
+        await event.respond("❌ Tidak ada room yang bisa dibatalkan.")
+        return
+
+    # Hanya pembuat room yang bisa batalkan
+    if sender != room["playerX"]:
+        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
+        return
+
+    # Kalau sudah ada playerO, tidak bisa dibatalkan
+    if room["playerO"]:
+        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
+        return
+
+    # Batalkan room
+    try:
+        del client.game_rooms[chat_id][room["id"]]
+    except:
+        pass
+    await event.respond("❌ Room dibatalkan oleh pembuat.")
+
 
 
 
@@ -1769,6 +1807,13 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/nyerah$"))
             async def tictactoe_surrender_event(event, c=client):
                 await tictactoe_surrender_handler(event, c)
+
+        # === TIC TAC TOE (hapus room) ===
+        if "tictactoe" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/batal$"))
+            async def tictactoe_cancel_event(event, c=client):
+                await tictactoe_cancel_handler(event, c)
+
 
 
 
