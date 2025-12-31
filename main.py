@@ -62,7 +62,8 @@ ACCOUNTS = [
             "clearch",
             "whois",
             "downloader",
-            "hilih"
+            "hilih",
+            "tictactoe"
         ],
     }
 ]
@@ -75,11 +76,10 @@ start_time_global = datetime.now()
 
 
 
-# === FITUR: HILIH ===
+# === FITUR: HILIH (ubah semua vokal jadi vokal tertentu) ===
 async def hilih_handler(event, client):
     if not event.is_private:
         return
-
     me = await client.get_me()
     if event.sender_id != me.id:
         return
@@ -94,20 +94,175 @@ async def hilih_handler(event, client):
         await event.reply("❌ Harus ada teks atau reply pesan.")
         return
 
-    cmd = event.pattern_match.group(1).lower() if event.pattern_match.group(1) else 'i'
+    target = event.pattern_match.group(1).lower() if event.pattern_match.group(1) else 'i'
 
-    def replace_vowels(text, target):
+    def replace_vowels(text, t):
         vokal = "aiueo"
-        result = ""
+        res = []
         for ch in text:
             if ch.lower() in vokal:
-                result += target.upper() if ch.isupper() else target
+                res.append(t.upper() if ch.isupper() else t)
             else:
-                result += ch
-        return result
+                res.append(ch)
+        return "".join(res)
 
-    output = replace_vowels(input_text, cmd)
+    output = replace_vowels(input_text, target)
     await event.reply(output)
+
+
+# === CLASS GAME TIC TAC TOE ===
+class TicTacToe:
+    def __init__(self, player_x):
+        self.board = [str(i) for i in range(1, 10)]
+        self.playerX = player_x
+        self.playerO = None
+        self.currentTurn = player_x
+        self.winner = None
+
+    def render(self):
+        mapping = {
+            "X": "❌", "O": "⭕",
+            "1": "1️⃣","2": "2️⃣","3": "3️⃣",
+            "4": "4️⃣","5": "5️⃣","6": "6️⃣",
+            "7": "7️⃣","8": "8️⃣","9": "9️⃣",
+        }
+        return [mapping.get(v, v) for v in self.board]
+
+    def move(self, player, pos):
+        if pos < 1 or pos > 9: return False
+        if self.board[pos - 1] in ["X", "O"]: return False
+        mark = "X" if player == self.playerX else "O"
+        self.board[pos - 1] = mark
+        self.currentTurn = self.playerO if player == self.playerX else self.playerX
+        self.check_winner()
+        return True
+
+    def check_winner(self):
+        wins = [(0,1,2),(3,4,5),(6,7,8),
+                (0,3,6),(1,4,7),(2,5,8),
+                (0,4,8),(2,4,6)]
+        for a,b,c in wins:
+            if self.board[a] == self.board[b] == self.board[c] and self.board[a] in ["X","O"]:
+                self.winner = self.board[a]
+                return self.winner
+        if all(v in ["X","O"] for v in self.board):
+            self.winner = "Draw"
+        return self.winner
+
+
+def _ensure_game_state(client, chat_id):
+    if not hasattr(client, "game_rooms"):
+        client.game_rooms = {}
+    if chat_id not in client.game_rooms:
+        client.game_rooms[chat_id] = {}
+
+
+# === HANDLER BUAT/JOIN ROOM TIC TAC TOE ===
+async def tictactoe_handler(event, client):
+    if not event.is_private: return
+    me = await client.get_me()
+    if event.sender_id != me.id: return
+
+    chat_id = event.chat_id
+    sender = event.sender_id
+    room_name = (event.pattern_match.group(1) or "").strip()
+    _ensure_game_state(client, chat_id)
+
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "PLAYING" and sender in [r["game"].playerX, r["game"].playerO]:
+            await event.reply("❌ Kamu masih ada dalam game aktif di chat ini.")
+            return
+
+    room = None
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "WAITING" and (room_name == "" or r.get("name") == room_name):
+            room = r; break
+
+    if room:
+        if sender == room["game"].playerX:
+            await event.reply("❌ Kamu sudah jadi player X di room itu."); return
+        room["game"].playerO = sender
+        room["playerO"] = sender
+        room["state"] = "PLAYING"
+        arr = room["game"].render()
+        board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
+        msg = (f"Partner ditemukan!\nRoom ID: {room['id']}\n\n{board}\n\n"
+               f"Menunggu giliran <code>{room['game'].currentTurn}</code>\n"
+               f"Ketik angka 1-9 untuk jalan\nKetik /nyerah untuk nyerah")
+        await event.reply(msg, parse_mode="html")
+    else:
+        room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
+        game = TicTacToe(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING","name": room_name if room_name else None}
+        client.game_rooms[chat_id][room_id] = new_room
+        wait_msg = "Menunggu partner..." + (f"\nKetik /tictactoe {room_name} untuk join" if room_name else "")
+        await event.reply(wait_msg)
+
+
+# === HANDLER LANGKAH TIC TAC TOE (angka 1–9) ===
+async def tictactoe_move_handler(event, client):
+    if not event.is_private: return
+    me = await client.get_me()
+    if event.sender_id != me.id: return
+
+    chat_id = event.chat_id
+    text = event.raw_text.strip()
+    if text not in [str(i) for i in range(1, 10)]: return
+    _ensure_game_state(client, chat_id)
+
+    room = None
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "PLAYING": room = r; break
+    if not room: return
+
+    game = room["game"]
+    pos = int(text)
+    player_to_move = game.currentTurn
+    if not game.move(player_to_move, pos):
+        await event.reply("❌ Posisi sudah terisi atau tidak valid."); return
+
+    arr = game.render()
+    board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
+
+    if game.winner:
+        if game.winner == "Draw":
+            msg = f"{board}\n\n🤝 Hasil seri!"
+        else:
+            winner_emoji = "❌" if game.winner == "X" else "⭕"
+            msg = f"{board}\n\n🏆 Pemenang: {winner_emoji}"
+        room["state"] = "FINISHED"
+        try: del client.game_rooms[chat_id][room["id"]]
+        except: pass
+    else:
+        msg = f"{board}\n\nMenunggu giliran <code>{game.currentTurn}</code>"
+
+    await event.reply(msg, parse_mode="html")
+
+
+# === HANDLER NYERAH TIC TAC TOE ===
+async def tictactoe_surrender_handler(event, client):
+    if not event.is_private: return
+    me = await client.get_me()
+    if event.sender_id != me.id: return
+
+    chat_id = event.chat_id
+    _ensure_game_state(client, chat_id)
+
+    room = None
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "PLAYING": room = r; break
+    if not room:
+        await event.reply("Tidak ada game aktif di chat ini."); return
+
+    game = room["game"]
+    opponent = game.playerO if game.currentTurn == game.playerX else game.playerX
+    room["state"] = "FINISHED"
+    msg = f"🏳️ Game disudahi!\n\n🏆 Pemenang otomatis: <code>{opponent}</code>"
+    try: del client.game_rooms[chat_id][room["id"]]
+    except: pass
+    await event.reply(msg, parse_mode="html")
+
 
 
 
@@ -1582,6 +1737,12 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/h([aiueo])l\1h(?: (.+))?"))
             async def hilih(event, c=client):
                 await hilih_handler(event, c)
+                
+        # === TIC TAC TOE (buat/join) ===
+        if "tictactoe" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:tictactoe|ttt)(?: (.+))?"))
+            async def ttt(event, c=client):
+
 
           
 
