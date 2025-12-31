@@ -171,7 +171,7 @@ async def tictactoe_handler(event, client):
     sender = event.sender_id
     _ensure_game_state(client, chat_id)
 
-    # Cek apakah sudah ada room PLAYING di chat ini
+    # Cek apakah sudah ada room PLAYING
     for r in client.game_rooms[chat_id].values():
         if r["state"] == "PLAYING":
             await event.respond("❌ Sudah ada game berjalan di chat ini.\nGunakan /nyerah untuk mengakhiri sebelum buat room baru.")
@@ -189,18 +189,18 @@ async def tictactoe_handler(event, client):
             await event.respond("❌ Kamu sudah membuat room ini. Tunggu orang lain untuk join.")
             return
 
-        # Join sebagai O
+        # Join sebagai Partner
         waiting_room["game"].playerO = sender
         waiting_room["playerO"] = sender
         waiting_room["state"] = "PLAYING"
         waiting_room["game"].names[sender] = "Partner"
 
-        # Tentukan giliran pertama secara acak
+        # Giliran pertama random
         waiting_room["game"].currentTurn = random.choice([waiting_room["playerX"], waiting_room["playerO"]])
 
         arr = waiting_room["game"].render()
         board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
-        label_turn = waiting_room["game"].names.get(waiting_room["game"].currentTurn, str(waiting_room["game"].currentTurn))
+        label_turn = waiting_room["game"].names.get(waiting_room["game"].currentTurn)
         msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
                f"Giliran pertama: <b>{label_turn}</b>")
         await event.respond(msg, parse_mode="html")
@@ -208,6 +208,7 @@ async def tictactoe_handler(event, client):
         # Buat room baru
         room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
         game = TicTacToe(sender)
+        game.names[sender] = "Pembuat room"
         new_room = {"id": room_id,"game": game,"playerX": sender,
                     "playerO": None,"state": "WAITING"}
         client.game_rooms[chat_id][room_id] = new_room
@@ -1793,7 +1794,7 @@ async def main():
                 
         # === TIC TAC TOE (buat/join room) ===
         if "tictactoe" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/(?:tictactoe|ttt)(?: (.+))?"))
+            @client.on(events.NewMessage(pattern=r"^/(?:tictactoe|ttt)$"))
             async def tictactoe_event(event, c=client):
                 await tictactoe_handler(event, c)
                 
