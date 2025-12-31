@@ -174,22 +174,39 @@ def render_keyboard(game: TicTacToe):
     return kb
 
 
-# === HANDLER BUAT ROOM ===
+# === HANDLER BUAT / JOIN ROOM ===
 async def tictactoe_handler(event, client):
     chat_id = event.chat_id
     sender = event.sender_id
     _ensure_game_state(client, chat_id)
 
-    room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
-    game = TicTacToe(sender)
-    room = {"id": room_id,"game": game,"playerX": sender,
-            "playerO": None,"state": "WAITING"}
-    client.game_rooms[chat_id][room_id] = room
+    # Cari room waiting
+    waiting_room = None
+    for r in client.game_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
 
-    await event.respond(
-        "Menunggu partner join...\nGunakan /tictactoe untuk join.",
-        buttons=render_keyboard(game)
-    )
+    if waiting_room:
+        # Join sebagai O
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+
+        arr = waiting_room["game"].render()
+        board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
+               f"Giliran <code>{waiting_room['game'].currentTurn}</code>")
+        await event.respond(msg, buttons=render_keyboard(waiting_room["game"]), parse_mode="html")
+    else:
+        # Buat room baru
+        room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
+        game = TicTacToe(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING"}
+        client.game_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /tictactoe untuk join.",
+                            buttons=render_keyboard(game))
 
 
 # === HANDLER CALLBACK TOMBOL ===
@@ -240,6 +257,7 @@ async def callback_handler(event):
     else:
         await event.edit(f"Giliran <code>{game.currentTurn}</code>",
                          buttons=render_keyboard(game), parse_mode="html")
+
 
 
 
