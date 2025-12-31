@@ -76,7 +76,7 @@ start_time_global = datetime.now()
 
 
 
-# === FITUR: HILIH (ubah semua vokal jadi vokal tertentu) ===
+# === FITUR: HILIH ===
 async def hilih_handler(event, client):
     if not event.is_private:
         return
@@ -84,6 +84,7 @@ async def hilih_handler(event, client):
     if event.sender_id != me.id:
         return
 
+    # Ambil teks dari argumen atau reply
     input_text = event.pattern_match.group(2).strip() if event.pattern_match.group(2) else ''
     if event.is_reply and not input_text:
         reply = await event.get_reply_message()
@@ -110,7 +111,7 @@ async def hilih_handler(event, client):
     await event.reply(output)
 
 
-# === CLASS GAME TIC TAC TOE ===
+# === CLASS TIC TAC TOE ===
 class TicTacToe:
     def __init__(self, player_x):
         self.board = [str(i) for i in range(1, 10)]
@@ -157,7 +158,7 @@ def _ensure_game_state(client, chat_id):
         client.game_rooms[chat_id] = {}
 
 
-# === HANDLER BUAT/JOIN ROOM TIC TAC TOE ===
+# === HANDLER BUAT/JOIN ROOM ===
 async def tictactoe_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
@@ -168,19 +169,13 @@ async def tictactoe_handler(event, client):
     room_name = (event.pattern_match.group(1) or "").strip()
     _ensure_game_state(client, chat_id)
 
-    for r in client.game_rooms[chat_id].values():
-        if r["state"] == "PLAYING" and sender in [r["game"].playerX, r["game"].playerO]:
-            await event.reply("❌ Kamu masih ada dalam game aktif di chat ini.")
-            return
-
+    # Cari room waiting
     room = None
     for r in client.game_rooms[chat_id].values():
         if r["state"] == "WAITING" and (room_name == "" or r.get("name") == room_name):
             room = r; break
 
     if room:
-        if sender == room["game"].playerX:
-            await event.reply("❌ Kamu sudah jadi player X di room itu."); return
         room["game"].playerO = sender
         room["playerO"] = sender
         room["state"] = "PLAYING"
@@ -196,11 +191,10 @@ async def tictactoe_handler(event, client):
         new_room = {"id": room_id,"game": game,"playerX": sender,
                     "playerO": None,"state": "WAITING","name": room_name if room_name else None}
         client.game_rooms[chat_id][room_id] = new_room
-        wait_msg = "Menunggu partner..." + (f"\nKetik /tictactoe {room_name} untuk join" if room_name else "")
-        await event.reply(wait_msg)
+        await event.reply("Menunggu partner...")
 
 
-# === HANDLER LANGKAH TIC TAC TOE (angka 1–9) ===
+# === HANDLER LANGKAH ===
 async def tictactoe_move_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
@@ -220,7 +214,7 @@ async def tictactoe_move_handler(event, client):
     pos = int(text)
     player_to_move = game.currentTurn
     if not game.move(player_to_move, pos):
-        await event.reply("❌ Posisi sudah terisi atau tidak valid."); return
+        await event.reply("❌ Posisi sudah terisi."); return
 
     arr = game.render()
     board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
@@ -240,7 +234,7 @@ async def tictactoe_move_handler(event, client):
     await event.reply(msg, parse_mode="html")
 
 
-# === HANDLER NYERAH TIC TAC TOE ===
+# === HANDLER NYERAH ===
 async def tictactoe_surrender_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
@@ -253,7 +247,7 @@ async def tictactoe_surrender_handler(event, client):
     for r in client.game_rooms[chat_id].values():
         if r["state"] == "PLAYING": room = r; break
     if not room:
-        await event.reply("Tidak ada game aktif di chat ini."); return
+        await event.reply("Tidak ada game aktif."); return
 
     game = room["game"]
     opponent = game.playerO if game.currentTurn == game.playerX else game.playerX
@@ -262,6 +256,7 @@ async def tictactoe_surrender_handler(event, client):
     try: del client.game_rooms[chat_id][room["id"]]
     except: pass
     await event.reply(msg, parse_mode="html")
+
 
 
 
@@ -1735,13 +1730,28 @@ async def main():
         # === HILIH ===
         if "hilih" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/h([aiueo])l\1h(?: (.+))?"))
-            async def hilih(event, c=client):
+            async def hilih_event(event, c=client):
                 await hilih_handler(event, c)
                 
-        # === TIC TAC TOE (buat/join) ===
+        # === TIC TAC TOE (buat/join room) ===
         if "tictactoe" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/(?:tictactoe|ttt)(?: (.+))?"))
-            async def ttt(event, c=client):
+            async def tictactoe_event(event, c=client):
+                await tictactoe_handler(event, c)
+                
+        # === TIC TAC TOE (langkah angka 1–9) ===
+        if "tictactoe" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^[1-9]$"))
+            async def tictactoe_move_event(event, c=client):
+                await tictactoe_move_handler(event, c)
+                
+        # === TIC TAC TOE (nyerah) ===
+        if "tictactoe" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
+            async def tictactoe_surrender_event(event, c=client):
+                await tictactoe_surrender_handler(event, c)
+
+
 
 
           
