@@ -124,6 +124,7 @@ class TicTacToe:
         self.playerO = None
         self.currentTurn = player_x
         self.winner = None
+        self.names = {player_x: "Pembuat room"}  # label nama
 
     def render(self):
         mapping = {
@@ -184,7 +185,6 @@ async def tictactoe_handler(event, client):
             break
 
     if waiting_room:
-        # Cek apakah yang join adalah pembuat room
         if sender == waiting_room["playerX"]:
             await event.respond("❌ Kamu sudah membuat room ini. Tunggu orang lain untuk join.")
             return
@@ -193,14 +193,16 @@ async def tictactoe_handler(event, client):
         waiting_room["game"].playerO = sender
         waiting_room["playerO"] = sender
         waiting_room["state"] = "PLAYING"
+        waiting_room["game"].names[sender] = "Partner"
 
         # Tentukan giliran pertama secara acak
         waiting_room["game"].currentTurn = random.choice([waiting_room["playerX"], waiting_room["playerO"]])
 
         arr = waiting_room["game"].render()
         board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
+        label_turn = waiting_room["game"].names.get(waiting_room["game"].currentTurn, str(waiting_room["game"].currentTurn))
         msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
-               f"Giliran pertama: <code>{waiting_room['game'].currentTurn}</code>")
+               f"Giliran pertama: <b>{label_turn}</b>")
         await event.respond(msg, parse_mode="html")
     else:
         # Buat room baru
@@ -231,7 +233,6 @@ async def tictactoe_move_handler(event, client):
 
     game = room["game"]
 
-    # Cek giliran
     if event.sender_id != game.currentTurn:
         await event.reply("❌ Bukan giliran kamu.")
         return
@@ -248,15 +249,14 @@ async def tictactoe_move_handler(event, client):
         if game.winner == "Draw":
             msg = f"{board}\n\n🤝 Hasil seri!"
         else:
-            winner_emoji = "❌" if game.winner == "X" else "⭕"
-            msg = f"{board}\n\n🏆 Pemenang: {winner_emoji}"
+            winner_label = game.names.get(room["playerX"], "Pembuat room") if game.winner == "X" else game.names.get(room["playerO"], "Partner")
+            msg = f"{board}\n\n🏆 Pemenang: {winner_label}"
         room["state"] = "FINISHED"
-        try:
-            del client.game_rooms[chat_id][room["id"]]
-        except:
-            pass
+        try: del client.game_rooms[chat_id][room["id"]]
+        except: pass
     else:
-        msg = f"{board}\n\nGiliran <code>{game.currentTurn}</code>"
+        label_turn = game.names.get(game.currentTurn, str(game.currentTurn))
+        msg = f"{board}\n\nGiliran: <b>{label_turn}</b>"
 
     await event.reply(msg, parse_mode="html")
 
@@ -278,11 +278,11 @@ async def tictactoe_surrender_handler(event, client):
     game = room["game"]
     opponent = game.playerO if sender == game.playerX else game.playerX
     room["state"] = "FINISHED"
-    try:
-        del client.game_rooms[chat_id][room["id"]]
-    except:
-        pass
-    await event.respond(f"🏳️ Pemain <code>{sender}</code> menyerah!\n\n🏆 Pemenang otomatis: <code>{opponent}</code>",
+    try: del client.game_rooms[chat_id][room["id"]]
+    except: pass
+    loser_label = game.names.get(sender, str(sender))
+    winner_label = game.names.get(opponent, str(opponent))
+    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
                         parse_mode="html")
 
 
@@ -301,21 +301,16 @@ async def tictactoe_cancel_handler(event, client):
         await event.respond("❌ Tidak ada room yang bisa dibatalkan.")
         return
 
-    # Hanya pembuat room yang bisa batalkan
     if sender != room["playerX"]:
         await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
         return
 
-    # Kalau sudah ada playerO, tidak bisa dibatalkan
     if room["playerO"]:
         await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
         return
 
-    # Batalkan room
-    try:
-        del client.game_rooms[chat_id][room["id"]]
-    except:
-        pass
+    try: del client.game_rooms[chat_id][room["id"]]
+    except: pass
     await event.respond("❌ Room dibatalkan oleh pembuat.")
 
 
