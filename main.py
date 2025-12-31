@@ -162,7 +162,6 @@ def _ensure_game_state(client, chat_id):
 async def tictactoe_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
-    if event.sender_id != me.id: return
 
     chat_id = event.chat_id
     sender = event.sender_id
@@ -198,7 +197,6 @@ async def tictactoe_handler(event, client):
 async def tictactoe_move_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
-    if event.sender_id != me.id: return
 
     chat_id = event.chat_id
     text = event.raw_text.strip()
@@ -238,7 +236,6 @@ async def tictactoe_move_handler(event, client):
 async def tictactoe_surrender_handler(event, client):
     if not event.is_private: return
     me = await client.get_me()
-    if event.sender_id != me.id: return
 
     chat_id = event.chat_id
     _ensure_game_state(client, chat_id)
