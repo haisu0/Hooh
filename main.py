@@ -61,8 +61,8 @@ ACCOUNTS = [
             "save_media",
             "clearch",
             "whois",
-            "downloader"
-
+            "downloader",
+            "hilih"
         ],
     }
 ]
@@ -75,6 +75,39 @@ start_time_global = datetime.now()
 
 
 
+# === FITUR: HILIH ===
+async def hilih_handler(event, client):
+    if not event.is_private:
+        return
+
+    me = await client.get_me()
+    if event.sender_id != me.id:
+        return
+
+    input_text = event.pattern_match.group(2).strip() if event.pattern_match.group(2) else ''
+    if event.is_reply and not input_text:
+        reply = await event.get_reply_message()
+        if reply and reply.message:
+            input_text = reply.message.strip()
+
+    if not input_text:
+        await event.reply("❌ Harus ada teks atau reply pesan.")
+        return
+
+    cmd = event.pattern_match.group(1).lower() if event.pattern_match.group(1) else 'i'
+
+    def replace_vowels(text, target):
+        vokal = "aiueo"
+        result = ""
+        for ch in text:
+            if ch.lower() in vokal:
+                result += target.upper() if ch.isupper() else target
+            else:
+                result += ch
+        return result
+
+    output = replace_vowels(input_text, cmd)
+    await event.reply(output)
 
 
 
@@ -1543,6 +1576,12 @@ async def main():
             lambda e: autopin_handler(e, client, acc.get("autopin_keywords", [])),
             events.NewMessage()
           )
+
+        if "hilih" in akun["features"]:
+            @client.on(events.NewMessage(pattern=r'^/h([aiueo])l\1h(?: (.+))?'))
+            async def _(event):
+                await hilih_handler(event, client)
+
           
 
         # === INFO RESTART ===
