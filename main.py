@@ -76,6 +76,19 @@ start_time_global = datetime.now()
 
 
 
+@client.on(events.NewMessage(pattern=r"^/test$"))
+async def test(event):
+    await event.respond(
+        "Coba klik tombol:",
+        buttons=[
+            [Button.inline("Tombol 1", data="1"), Button.inline("Tombol 2", data="2")],
+            [Button.inline("🏳️ Nyerah", data="surrender")]
+        ]
+    )
+
+
+
+
 # === FITUR: HILIH ===
 async def hilih_handler(event, client):
     if not event.is_private:
