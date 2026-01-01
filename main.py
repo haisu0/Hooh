@@ -5,7 +5,8 @@ import asyncio
 import os
 import re
 import mimetypes
-import whisper
+import speech_recognition as sr
+from pydub import AudioSegment
 from telethon import types
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -82,12 +83,12 @@ start_time_global = datetime.now()
 
 
 
-# === FITUR: VN TO TEXT (Reply Only, Auto Detect Language) ===
+
+# === FITUR: VN TO TEXT (Reply Only, SpeechRecognition) ===
 async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
     if not event.is_private:
         return
 
-    # hanya jalan kalau command /stt dan reply ke VN/audio
     if not event.is_reply:
         await event.reply("❌ Harus reply ke VN/audio dengan `/stt`")
         return
@@ -102,15 +103,25 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
         os.makedirs(folder, exist_ok=True)
         file_path = await reply.download_media(file=folder)
 
-        # Transcribe dengan Whisper (auto detect language)
-        result = whisper_model.transcribe(file_path)  # tanpa language="id"
-        text = result.get("text", "").strip()
-        detected_lang = result.get("language", "unknown")
+        # Konversi OGG → WAV
+        wav_path = file_path + ".wav"
+        AudioSegment.from_file(file_path).export(wav_path, format="wav")
+
+        # Gunakan SpeechRecognition
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
+
+        try:
+            text = recognizer.recognize_google(audio_data, language="id-ID")
+        except sr.UnknownValueError:
+            text = "Tidak bisa mengenali suara"
+        except sr.RequestError as e:
+            text = f"Error API: {e}"
 
         caption = (
             "🎙 **VN → Text**\n\n"
-            f"🌐 Detected Language: `{detected_lang}`\n"
-            f"📝 {text if text else 'Tidak ada hasil'}"
+            f"📝 {text}"
         )
         await client.send_message(event.chat_id, caption)
 
@@ -119,13 +130,16 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
         if log_admin:
             await client.send_message(log_admin, caption)
 
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
+        # Bersihkan file
+        for f in [file_path, wav_path]:
+            if f and os.path.exists(f):
+                os.remove(f)
 
     except Exception as e:
         await event.reply(f"⚠ Error VN→Text: `{e}`")
         if log_admin:
             await client.send_message(log_admin, f"⚠ Error VN→Text: `{e}`")
+
 
 
 
