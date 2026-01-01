@@ -1890,8 +1890,8 @@ async def main():
         # === VN TO TEXT (Reply Only) ===
         if "vn_to_text" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/stt$"))
-            async def stt(event, c=client, acc=account):
-                await vn_to_text_handler(event, c, acc.get("log_channel"), acc.get("log_admin"))
+            async def stt(event, c=client):
+                await vn_to_text_handler(event, c)
 
 
 
