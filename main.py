@@ -84,11 +84,6 @@ start_time_global = datetime.now()
 
 
 
-import aiohttp
-import random
-import asyncio
-from datetime import datetime
-
 # === CLASS TEKA TEKI ===
 class TekaTekiGame:
     def __init__(self, player_x):
@@ -103,9 +98,8 @@ class TekaTekiGame:
 
     async def load_question(self):
         url = "https://storage.vynaa.web.id/api/raw?path=game%2Ftekateki.json"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                data = await resp.json()
+        resp = requests.get(url)
+        data = resp.json()
 
         # Ambil hanya item yang valid
         valid_items = [item["data"] for item in data if item.get("status") and "data" in item]
