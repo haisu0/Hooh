@@ -231,6 +231,36 @@ async def tekateki_surrender_handler(event, client):
     await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
                         parse_mode="html")
 
+# === HANDLER BATALKAN ROOM TEKA TEKI (hanya kalau belum ada yang join) ===
+async def tekateki_cancel_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_teka_state(client, chat_id)
+
+    room = None
+    for r in client.teka_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            room = r
+            break
+    if not room:
+        await event.respond("❌ Tidak ada room teka-teki yang bisa dibatalkan.")
+        return
+
+    if sender != room["playerX"]:
+        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
+        return
+
+    if room["playerO"]:
+        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
+        return
+
+    try: 
+        del client.teka_rooms[chat_id][room["id"]]
+    except: 
+        pass
+    await event.respond("❌ Room teka-teki dibatalkan oleh pembuat.")
+
+
 
 
 
@@ -2059,6 +2089,13 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/nyerah$"))
             async def tekateki_surrender_event(event, c=client):
                 await tekateki_surrender_handler(event, c)
+
+        # === TEKA TEKI (hapus room) ===
+        if "tekateki" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/batal$"))
+            async def tekateki_cancel_event(event, c=client):
+                await tekateki_cancel_handler(event, c)
+
 
 
 
