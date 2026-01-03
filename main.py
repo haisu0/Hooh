@@ -210,59 +210,6 @@ async def tebakkata_answer_handler(event, client):
         return
 
 
-# === HANDLER MENYERAH ===
-async def tebakkata_surrender_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_tebak_state(client, chat_id)
-
-    room = None
-    for r in client.tebak_rooms[chat_id].values():
-        if r["state"] == "PLAYING":
-            room = r
-            break
-    if not room:
-        return
-
-    game = room["game"]
-    opponent = game.playerO if sender == game.playerX else game.playerX
-    room["state"] = "FINISHED"
-    try: del client.tebak_rooms[chat_id][room["id"]]
-    except: pass
-    loser_label = game.names.get(sender, str(sender))
-    winner_label = game.names.get(opponent, str(opponent))
-    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
-                        parse_mode="html")
-
-
-# === HANDLER BATALKAN ROOM (hanya kalau belum ada yang join) ===
-async def tebakkata_cancel_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_tebak_state(client, chat_id)
-
-    room = None
-    for r in client.tebak_rooms[chat_id].values():
-        if r["state"] == "WAITING":
-            room = r
-            break
-    if not room:
-        await event.respond("❌ Tidak ada room Tebak Kata yang bisa dibatalkan.")
-        return
-
-    if sender != room["playerX"]:
-        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
-        return
-
-    if room["playerO"]:
-        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
-        return
-
-    try: del client.tebak_rooms[chat_id][room["id"]]
-    except: pass
-    await event.respond("❌ Room Tebak Kata dibatalkan oleh pembuat.")
-
-
 
 # === CLASS SIAPAKAH AKU ===
 class SiapakahAkuGame:
@@ -383,62 +330,6 @@ async def siapakahaku_answer_handler(event, client):
     else:
         # Jangan balas kalau salah
         return
-
-
-# === HANDLER MENYERAH ===
-async def siapakahaku_surrender_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_siapakah_state(client, chat_id)
-
-    room = None
-    for r in client.siapakah_rooms[chat_id].values():
-        if r["state"] == "PLAYING":
-            room = r
-            break
-    if not room:
-        return
-
-    game = room["game"]
-    opponent = game.playerO if sender == game.playerX else game.playerX
-    room["state"] = "FINISHED"
-    try: del client.siapakah_rooms[chat_id][room["id"]]
-    except: pass
-    loser_label = game.names.get(sender, str(sender))
-    winner_label = game.names.get(opponent, str(opponent))
-    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
-                        parse_mode="html")
-
-
-# === HANDLER BATALKAN ROOM (hanya kalau belum ada yang join) ===
-async def siapakahaku_cancel_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_siapakah_state(client, chat_id)
-
-    room = None
-    for r in client.siapakah_rooms[chat_id].values():
-        if r["state"] == "WAITING":
-            room = r
-            break
-    if not room:
-        await event.respond("❌ Tidak ada room Siapakah Aku yang bisa dibatalkan.")
-        return
-
-    if sender != room["playerX"]:
-        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
-        return
-
-    if room["playerO"]:
-        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
-        return
-
-    try: del client.siapakah_rooms[chat_id][room["id"]]
-    except: pass
-    await event.respond("❌ Room Siapakah Aku dibatalkan oleh pembuat.")
-
-
-
 
 
 
@@ -563,61 +454,6 @@ async def asahotak_answer_handler(event, client):
         return
 
 
-# === HANDLER MENYERAH ===
-async def asahotak_surrender_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_asah_state(client, chat_id)
-
-    room = None
-    for r in client.asah_rooms[chat_id].values():
-        if r["state"] == "PLAYING":
-            room = r
-            break
-    if not room:
-        return
-
-    game = room["game"]
-    opponent = game.playerO if sender == game.playerX else game.playerX
-    room["state"] = "FINISHED"
-    try: del client.asah_rooms[chat_id][room["id"]]
-    except: pass
-    loser_label = game.names.get(sender, str(sender))
-    winner_label = game.names.get(opponent, str(opponent))
-    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
-                        parse_mode="html")
-
-
-# === HANDLER BATALKAN ROOM (hanya kalau belum ada yang join) ===
-async def asahotak_cancel_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_asah_state(client, chat_id)
-
-    room = None
-    for r in client.asah_rooms[chat_id].values():
-        if r["state"] == "WAITING":
-            room = r
-            break
-    if not room:
-        await event.respond("❌ Tidak ada room Asah Otak yang bisa dibatalkan.")
-        return
-
-    if sender != room["playerX"]:
-        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
-        return
-
-    if room["playerO"]:
-        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
-        return
-
-    try: del client.asah_rooms[chat_id][room["id"]]
-    except: pass
-    await event.respond("❌ Room Asah Otak dibatalkan oleh pembuat.")
-
-
-
-
 
 # === CLASS TEKA TEKI ===
 class TekaTekiGame:
@@ -652,7 +488,7 @@ def _ensure_teka_state(client, chat_id):
         client.teka_rooms[chat_id] = {}
 
 
-# === HANDLER BUAT / JOIN ROOM ===
+# === HANDLER BUAT  JOIN ROOM ===
 async def tekateki_handler(event, client):
     chat_id = event.chat_id
     sender = event.sender_id
@@ -740,61 +576,6 @@ async def tekateki_answer_handler(event, client):
     else:
         # Jangan balas kalau salah
         return
-
-
-# === HANDLER MENYERAH ===
-async def tekateki_surrender_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_teka_state(client, chat_id)
-
-    room = None
-    for r in client.teka_rooms[chat_id].values():
-        if r["state"] == "PLAYING":
-            room = r
-            break
-    if not room:
-        return
-
-    game = room["game"]
-    opponent = game.playerO if sender == game.playerX else game.playerX
-    room["state"] = "FINISHED"
-    try: del client.teka_rooms[chat_id][room["id"]]
-    except: pass
-    loser_label = game.names.get(sender, str(sender))
-    winner_label = game.names.get(opponent, str(opponent))
-    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
-                        parse_mode="html")
-
-# === HANDLER BATALKAN ROOM TEKA TEKI (hanya kalau belum ada yang join) ===
-async def tekateki_cancel_handler(event, client):
-    chat_id = event.chat_id
-    sender = event.sender_id
-    _ensure_teka_state(client, chat_id)
-
-    room = None
-    for r in client.teka_rooms[chat_id].values():
-        if r["state"] == "WAITING":
-            room = r
-            break
-    if not room:
-        await event.respond("❌ Tidak ada room teka-teki yang bisa dibatalkan.")
-        return
-
-    if sender != room["playerX"]:
-        await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
-        return
-
-    if room["playerO"]:
-        await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
-        return
-
-    try: 
-        del client.teka_rooms[chat_id][room["id"]]
-    except: 
-        pass
-    await event.respond("❌ Room teka-teki dibatalkan oleh pembuat.")
-
 
 
 
@@ -1048,57 +829,102 @@ async def tictactoe_move_handler(event, client):
     await event.reply(msg, parse_mode="html")
 
 
-# === HANDLER MENYERAH ===
-async def tictactoe_surrender_handler(event, client):
+# === HANDLER MENYERAH (gabungan semua game) ===
+async def surrender_room_handler(event, client):
     chat_id = event.chat_id
     sender = event.sender_id
-    _ensure_game_state(client, chat_id)
 
-    room = None
-    for r in client.game_rooms[chat_id].values():
-        if r["state"] == "PLAYING":
-            room = r
+    # List semua state dict per game
+    state_attrs = [
+        ("tictactoe", "game_rooms"),
+        ("tekateki", "teka_rooms"),
+        ("asahotak", "asah_rooms"),
+        ("siapakahaku", "siapakah_rooms"),
+        ("tebakkata", "tebak_rooms"),
+    ]
+
+    found_room = None
+    found_game = None
+
+    for game_name, attr in state_attrs:
+        if hasattr(client, attr) and chat_id in getattr(client, attr):
+            rooms = getattr(client, attr)[chat_id]
+            for r in rooms.values():
+                if r["state"] == "PLAYING":
+                    found_room = r
+                    found_game = game_name
+                    break
+        if found_room:
             break
-    if not room:
+
+    if not found_room:
+        await event.respond("❌ Tidak ada game yang sedang dimainkan untuk diserahkan.")
         return
 
-    game = room["game"]
+    game = found_room["game"]
     opponent = game.playerO if sender == game.playerX else game.playerX
-    room["state"] = "FINISHED"
-    try: del client.game_rooms[chat_id][room["id"]]
-    except: pass
+    found_room["state"] = "FINISHED"
+    try:
+        del getattr(client, state_attrs[[g for g, a in state_attrs].index(found_game)][1])[chat_id][found_room["id"]]
+    except:
+        pass
+
     loser_label = game.names.get(sender, str(sender))
     winner_label = game.names.get(opponent, str(opponent))
-    await event.respond(f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n🏆 Pemenang otomatis: <b>{winner_label}</b>",
-                        parse_mode="html")
+    await event.respond(
+        f"🏳️ Pemain <b>{loser_label}</b> menyerah!\n\n"
+        f"🏆 Pemenang otomatis: <b>{winner_label}</b>\n"
+        f"🎮 Game: {found_game}",
+        parse_mode="html"
+    )
 
-
-# === HANDLER BATALKAN ROOM (hanya kalau belum ada yang join) ===
-async def tictactoe_cancel_handler(event, client):
+# === HANDLER BATALKAN ROOM (gabungan semua game) ===
+async def cancel_room_handler(event, client):
     chat_id = event.chat_id
     sender = event.sender_id
-    _ensure_game_state(client, chat_id)
 
-    room = None
-    for r in client.game_rooms[chat_id].values():
-        if r["state"] == "WAITING":
-            room = r
+    # List semua state dict per game
+    state_attrs = [
+        ("tictactoe", "game_rooms"),
+        ("tekateki", "teka_rooms"),
+        ("asahotak", "asah_rooms"),
+        ("siapakahaku", "siapakah_rooms"),
+        ("tebakkata", "tebak_rooms"),
+    ]
+
+    found_room = None
+    found_game = None
+
+    for game_name, attr in state_attrs:
+        if hasattr(client, attr) and chat_id in getattr(client, attr):
+            rooms = getattr(client, attr)[chat_id]
+            for r in rooms.values():
+                if r["state"] == "WAITING":
+                    found_room = r
+                    found_game = game_name
+                    break
+        if found_room:
             break
-    if not room:
+
+    if not found_room:
         await event.respond("❌ Tidak ada room yang bisa dibatalkan.")
         return
 
-    if sender != room["playerX"]:
+    # Validasi pembuat room
+    if sender != found_room["playerX"]:
         await event.respond("❌ Hanya pembuat room yang bisa membatalkan.")
         return
 
-    if room["playerO"]:
+    if found_room.get("playerO"):
         await event.respond("❌ Room sudah ada partner. Tidak bisa dibatalkan, gunakan /nyerah jika ingin berhenti.")
         return
 
-    try: del client.game_rooms[chat_id][room["id"]]
-    except: pass
-    await event.respond("❌ Room dibatalkan oleh pembuat.")
+    try:
+        del getattr(client, state_attrs[[g for g, a in state_attrs].index(found_game)][1])[chat_id][found_room["id"]]
+    except:
+        pass
+
+    await event.respond(f"❌ Room {found_game} dibatalkan oleh pembuat.")
 
 
 
@@ -2589,18 +2415,6 @@ async def main():
             async def tictactoe_move_event(event, c=client):
                 await tictactoe_move_handler(event, c)
                 
-        # === TIC TAC TOE (nyerah) ===
-        if "tictactoe" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
-            async def tictactoe_surrender_event(event, c=client):
-                await tictactoe_surrender_handler(event, c)
-
-        # === TIC TAC TOE (hapus room) ===
-        if "tictactoe" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/batal$"))
-            async def tictactoe_cancel_event(event, c=client):
-                await tictactoe_cancel_handler(event, c)
-
         # === VN TO TEXT (Reply Only) ===
         if "vn_to_text" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/stt$"))
@@ -2619,18 +2433,6 @@ async def main():
             async def tekateki_answer_event(event, c=client):
                 await tekateki_answer_handler(event, c)
 
-        # === TEKA TEKI (nyerah) ===
-        if "tekateki" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
-            async def tekateki_surrender_event(event, c=client):
-                await tekateki_surrender_handler(event, c)
-
-        # === TEKA TEKI (hapus room) ===
-        if "tekateki" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/batal$"))
-            async def tekateki_cancel_event(event, c=client):
-                await tekateki_cancel_handler(event, c)
-
         # === ASAH OTAK (buat/join room) ===
         if "asahotak" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/(?:asahotak|ao)$"))
@@ -2642,18 +2444,6 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?!/).*"))
             async def asahotak_answer_event(event, c=client):
                 await asahotak_answer_handler(event, c)
-
-        # === ASAH OTAK (nyerah) ===
-        if "asahotak" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
-            async def asahotak_surrender_event(event, c=client):
-                await asahotak_surrender_handler(event, c)
-
-        # === ASAH OTAK (hapus room) ===
-        if "asahotak" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/batal$"))
-            async def asahotak_cancel_event(event, c=client):
-                await asahotak_cancel_handler(event, c)
 
         # === SIAPAKAH AKU (buat/join room) ===
         if "siapakahaku" in acc["features"]:
@@ -2667,18 +2457,6 @@ async def main():
             async def siapakahaku_answer_event(event, c=client):
                 await siapakahaku_answer_handler(event, c)
 
-        # === SIAPAKAH AKU (nyerah) ===
-        if "siapakahaku" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
-            async def siapakahaku_surrender_event(event, c=client):
-                await siapakahaku_surrender_handler(event, c)
-
-        # === SIAPAKAH AKU (hapus room) ===
-        if "siapakahaku" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/batal$"))
-            async def siapakahaku_cancel_event(event, c=client):
-                await siapakahaku_cancel_handler(event, c)
-
         # === TEBAK KATA (buat/join room) ===
         if "tebakkata" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/(?:tebakkata|tk)$"))
@@ -2691,19 +2469,15 @@ async def main():
             async def tebakkata_answer_event(event, c=client):
                 await tebakkata_answer_handler(event, c)
 
-        # === TEBAK KATA (nyerah) ===
-        if "tebakkata" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
-            async def tebakkata_surrender_event(event, c=client):
-                await tebakkata_surrender_handler(event, c)
+        # === NYERAH (gabungan semua game) ===
+        @client.on(events.NewMessage(pattern=r"^/nyerah$"))
+        async def surrender_event(event, c=client):
+            await surrender_room_handler(event, c)
 
-        # === TEBAK KATA (hapus room) ===
-        if "tebakkata" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^/batal$"))
-            async def tebakkata_cancel_event(event, c=client):
-                await tebakkata_cancel_handler(event, c)
-
-
+        # === BATALKAN ROOM (gabungan semua game) ===
+        @client.on(events.NewMessage(pattern=r"^/batal$"))
+        async def cancel_event(event, c=client):
+            await cancel_room_handler(event, c)
 
 
 
