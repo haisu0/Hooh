@@ -70,7 +70,8 @@ ACCOUNTS = [
             "tekateki",
             "asahotak",
             "siapakahaku",
-            "tebakkata"
+            "tebakkata",
+            "confess"
         ],
     }
 ]
@@ -84,6 +85,139 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+# ===== FITUR CONFESS =====
+import asyncio, random, string
+from telethon import events
+
+# State global, dipisahkan per akun (client)
+confess_sessions = {}   # {client_id: {user_id: True}}
+pending_confess = {}    # {client_id: {msg_id: {...}}}
+rooms = {}              # {client_id: {room_id: {...}}}
+
+def gen_id():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+async def confess_handler(event, client):
+    if not event.is_private:
+        return  # hanya aktif di private chat
+
+    text = (event.message.message or "").strip()
+    sender_id = event.sender_id
+    cid = id(client)  # identitas unik per akun
+
+    # init dict per akun
+    confess_sessions.setdefault(cid, {})
+    pending_confess.setdefault(cid, {})
+    rooms.setdefault(cid, {})
+
+    # === Command /confess ===
+    if text == "/confess":
+        confess_sessions[cid][sender_id] = True
+        await event.reply(
+            "💌 FORMAT CONFESS\n\n"
+            "CONFESS\n"
+            "From: (opsional)\n"
+            "To:\n"
+            "Message:"
+        )
+        return
+
+    # === Isi format confess ===
+    if confess_sessions[cid].get(sender_id):
+        if not text.startswith("CONFESS"):
+            await event.reply("❌ Format harus diawali CONFESS")
+            return
+
+        import re
+        to_match = re.search(r'To:\s*(.+)', text, re.I)
+        msg_match = re.search(r'Message:\s*([\s\S]+)', text, re.I)
+        from_match = re.search(r'From:\s*(.*)', text, re.I)
+
+        to = to_match.group(1).strip() if to_match else None
+        body = msg_match.group(1).strip() if msg_match else None
+        from_name = from_match.group(1).strip() if from_match else "Anonim"
+
+        if not to or not body:
+            await event.reply("❌ To atau Message belum diisi")
+            return
+
+        try:
+            entity = await client.get_entity(to)
+        except:
+            await event.reply("❌ Target tidak ditemukan")
+            return
+
+        sent = await client.send_message(entity,
+            f"💌 Anonymous Confession\n\n"
+            f"💬 Dari: {from_name}\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"{body}\n\n"
+            f"Reply pesan ini:\n"
+            f"/accept atau /reject"
+        )
+
+        pending_confess[cid][sent.id] = {"sender": sender_id, "target": entity.id}
+        confess_sessions[cid].pop(sender_id, None)
+        await event.reply("✅ Confess terkirim")
+        return
+
+    # === Accept / Reject ===
+    if text in ["/accept", "/reject"] and event.is_reply:
+        reply_id = event.message.reply_to_msg_id
+        data = pending_confess[cid].get(reply_id)
+        if not data:
+            return
+
+        if text == "/reject":
+            await client.send_message(data["sender"], "❌ Confess ditolak")
+            pending_confess[cid].pop(reply_id, None)
+            return
+
+        # accept → buat room anonim
+        room_id = gen_id()
+
+        async def expire_room():
+            await asyncio.sleep(3600)  # 1 jam
+            room = rooms[cid].get(room_id)
+            if room:
+                await client.send_message(room["sender"], "⌛ Room berakhir (1 jam)")
+                await client.send_message(room["target"], "⌛ Room berakhir (1 jam)")
+                rooms[cid].pop(room_id, None)
+
+        task = asyncio.create_task(expire_room())
+        rooms[cid][room_id] = {
+            "sender": data["sender"],
+            "target": data["target"],
+            "messages": [],
+            "expire": task
+        }
+        pending_confess[cid].pop(reply_id, None)
+
+        await client.send_message(data["sender"], "💬 Confess diterima. Room dimulai.")
+        await event.reply("💬 Room chat anonim dimulai.")
+        return
+
+    # === Relay pesan dalam room ===
+    for rid, room in list(rooms[cid].items()):
+        if sender_id in [room["sender"], room["target"]]:
+            to = room["target"] if sender_id == room["sender"] else room["sender"]
+            await client.send_message(to, text)
+            room["messages"].append(event.message.id)
+            return
+
+    # === Endchat manual ===
+    if text == "/endchat" and event.is_reply:
+        reply_id = event.message.reply_to_msg_id
+        for rid, room in list(rooms[cid].items()):
+            if reply_id in room["messages"]:
+                room["expire"].cancel()
+                rooms[cid].pop(rid, None)
+                await client.send_message(room["sender"], "✅ Room selesai")
+                await client.send_message(room["target"], "✅ Room selesai")
+                return
 
 
 
@@ -2479,6 +2613,8 @@ async def main():
         async def cancel_event(event, c=client):
             await cancel_room_handler(event, c)
 
+        if "confess" in acc["features"]:
+            client.add_event_handler(lambda e: confess_handler(e, client), events.NewMessage())
 
 
 
