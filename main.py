@@ -95,7 +95,7 @@ from telethon import events
 # State global, dipisahkan per akun (client)
 confess_sessions = {}    # {client_id: {user_id: True}}
 pending_confess = {}     # {client_id: {msg_id: {"sender": id, "target": id}}}
-rooms = {}               # {client_id: {room_id: {"sender": id, "target": id, "messages": [msg_ids], "expire": task}}}
+rooms = {}               # {client_id: {room_id: {"sender": id, "target": id, "messages": [], "expire": task}}}
 
 def gen_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -135,7 +135,7 @@ async def confess_handler(event, client):
             await event.reply("ℹ️ Tidak ada sesi confess yang aktif.")
         return
 
-    # === /confess: mulai sesi, tapi blokir jika user sedang aktif/pending ===
+    # === /confess: mulai sesi, blokir jika user sedang aktif/pending ===
     if text == "/confess":
         if _user_in_active_room(cid, sender_id):
             await event.reply("❌ Kamu masih berada di room anonim yang aktif. Selesaikan dulu dengan `/endchat`.")
@@ -157,7 +157,7 @@ async def confess_handler(event, client):
 
     # === Isi format confess ===
     if confess_sessions[cid].get(sender_id):
-        if not text.startswith("CONFESS"):
+        if not text.startswith("💌 FORMAT CONFESS"):
             await event.reply("❌ Format harus diawali `CONFESS`.\nKetik `/cancel` untuk membatalkan sesi.")
             return
 
@@ -224,8 +224,8 @@ async def confess_handler(event, client):
             await asyncio.sleep(120)  # 1 jam
             room = rooms[cid].get(room_id)
             if room:
-                await client.send_message(room["sender"], "⌛ Room berakhir (1 jam)")
-                await client.send_message(room["target"], "⌛ Room berakhir (1 jam)")
+                await client.send_message(room["sender"], "⌛ Room berakhir (2 menit)")
+                await client.send_message(room["target"], "⌛ Room berakhir (2 menit)")
                 rooms[cid].pop(room_id, None)
 
         task = asyncio.create_task(expire_room())
@@ -241,28 +241,28 @@ async def confess_handler(event, client):
         await event.reply("💬 Room chat anonim dimulai.")
         return
 
-    # === Relay pesan dalam room ===
+    # === Relay pesan dalam room (ketat) ===
     for rid, room in list(rooms[cid].items()):
-        if sender_id in (room["sender"], room["target"]):
-            to = room["target"] if sender_id == room["sender"] else room["sender"]
-            room["messages"].append(event.message.id)
-            await client.send_message(to, text)
-            return
+        if not event.is_private:
+            return  # hanya relay di private chat
+
+        if sender_id == room["sender"]:
+            to = room["target"]
+        elif sender_id == room["target"]:
+            to = room["sender"]
+        else:
+            continue
+
+        # hanya relay jika chat_id sesuai (private chat dengan bot)
+        if event.chat_id not in (room["sender"], room["target"]):
+            continue
+
+        room["messages"].append(event.message.id)
+        await client.send_message(to, text)
+        return
 
     # === Endchat ===
     if text == "/endchat":
-        # Mode 1: reply ke pesan room
-        if event.is_reply:
-            reply_id = event.message.reply_to_msg_id
-            for rid, room in list(rooms[cid].items()):
-                if reply_id in room["messages"]:
-                    room["expire"].cancel()
-                    rooms[cid].pop(rid, None)
-                    await client.send_message(room["sender"], "✅ Room selesai")
-                    await client.send_message(room["target"], "✅ Room selesai")
-                    return
-
-        # Mode 2: tanpa reply, tutup room aktif milik user
         active_rid = _user_in_active_room(cid, sender_id)
         if active_rid:
             room = rooms[cid].get(active_rid)
@@ -272,7 +272,6 @@ async def confess_handler(event, client):
                 await client.send_message(room["sender"], "✅ Room selesai")
                 await client.send_message(room["target"], "✅ Room selesai")
                 return
-
         await event.reply("ℹ️ Tidak ada room anonim aktif untuk diakhiri.")
         return
 
