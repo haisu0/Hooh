@@ -93,12 +93,31 @@ import asyncio, random, string
 from telethon import events
 
 # State global, dipisahkan per akun (client)
-confess_sessions = {}   # {client_id: {user_id: True}}
-pending_confess = {}    # {client_id: {msg_id: {...}}}
-rooms = {}              # {client_id: {room_id: {...}}}
+confess_sessions = {}    # {client_id: {user_id: True}}
+pending_confess = {}     # {client_id: {msg_id: {"sender": id, "target": id}}}
+rooms = {}               # {client_id: {room_id: {"sender": id, "target": id, "messages": [msg_ids], "expire": task}}}
 
 def gen_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+def _init_client_state(client):
+    cid = id(client)
+    confess_sessions.setdefault(cid, {})
+    pending_confess.setdefault(cid, {})
+    rooms.setdefault(cid, {})
+    return cid
+
+def _user_in_active_room(cid, user_id):
+    for rid, room in rooms[cid].items():
+        if user_id in (room["sender"], room["target"]):
+            return rid
+    return None
+
+def _user_has_pending_confess(cid, user_id):
+    for mid, data in pending_confess[cid].items():
+        if data.get("sender") == user_id or data.get("target") == user_id:
+            return True
+    return False
 
 async def confess_handler(event, client):
     if not event.is_private:
@@ -106,29 +125,40 @@ async def confess_handler(event, client):
 
     text = (event.message.message or "").strip()
     sender_id = event.sender_id
-    cid = id(client)  # identitas unik per akun
+    cid = _init_client_state(client)
 
-    # init dict per akun
-    confess_sessions.setdefault(cid, {})
-    pending_confess.setdefault(cid, {})
-    rooms.setdefault(cid, {})
+    # === /cancel: batalkan sesi pengisian format ===
+    if text == "/cancel":
+        if confess_sessions[cid].pop(sender_id, None):
+            await event.reply("✅ Sesi confess dibatalkan.")
+        else:
+            await event.reply("ℹ️ Tidak ada sesi confess yang aktif.")
+        return
 
-    # === Command /confess ===
+    # === /confess: mulai sesi, tapi blokir jika user sedang aktif/pending ===
     if text == "/confess":
+        if _user_in_active_room(cid, sender_id):
+            await event.reply("❌ Kamu masih berada di room anonim yang aktif. Selesaikan dulu dengan `/endchat`.")
+            return
+        if _user_has_pending_confess(cid, sender_id):
+            await event.reply("❌ Kamu masih punya confess yang menunggu respon. Tunggu /accept atau /reject.")
+            return
+
         confess_sessions[cid][sender_id] = True
         await event.reply(
             "💌 FORMAT CONFESS\n\n"
             "CONFESS\n"
             "From: (opsional)\n"
             "To:\n"
-            "Message:"
+            "Message:\n\n"
+            "Ketik `/cancel` untuk membatalkan sesi."
         )
         return
 
     # === Isi format confess ===
     if confess_sessions[cid].get(sender_id):
         if not text.startswith("CONFESS"):
-            await event.reply("❌ Format harus diawali CONFESS")
+            await event.reply("❌ Format harus diawali `CONFESS`.\nKetik `/cancel` untuk membatalkan sesi.")
             return
 
         import re
@@ -141,16 +171,27 @@ async def confess_handler(event, client):
         from_name = from_match.group(1).strip() if from_match else "Anonim"
 
         if not to or not body:
-            await event.reply("❌ To atau Message belum diisi")
+            await event.reply("❌ `To` atau `Message` belum diisi.\nKetik `/cancel` untuk membatalkan sesi.")
             return
 
         try:
             entity = await client.get_entity(to)
         except:
-            await event.reply("❌ Target tidak ditemukan")
+            await event.reply("❌ Target tidak ditemukan. Ketik `/cancel` untuk membatalkan sesi.")
             return
 
-        sent = await client.send_message(entity,
+        # cek apakah target sedang aktif di room atau pending confess
+        if _user_in_active_room(cid, entity.id):
+            await event.reply("❌ Target sedang berada di room anonim aktif. Tidak bisa di-confess sekarang.")
+            confess_sessions[cid].pop(sender_id, None)
+            return
+        if _user_has_pending_confess(cid, entity.id):
+            await event.reply("❌ Target sedang menerima confess lain. Tunggu sampai selesai.")
+            confess_sessions[cid].pop(sender_id, None)
+            return
+
+        sent = await client.send_message(
+            entity,
             f"💌 Anonymous Confession\n\n"
             f"💬 Dari: {from_name}\n"
             f"━━━━━━━━━━━━━━\n"
@@ -161,10 +202,10 @@ async def confess_handler(event, client):
 
         pending_confess[cid][sent.id] = {"sender": sender_id, "target": entity.id}
         confess_sessions[cid].pop(sender_id, None)
-        await event.reply("✅ Confess terkirim")
+        await event.reply("✅ Confess terkirim. Tunggu respon target (/accept atau /reject).")
         return
 
-    # === Accept / Reject ===
+    # === Accept / Reject oleh target ===
     if text in ["/accept", "/reject"] and event.is_reply:
         reply_id = event.message.reply_to_msg_id
         data = pending_confess[cid].get(reply_id)
@@ -180,7 +221,7 @@ async def confess_handler(event, client):
         room_id = gen_id()
 
         async def expire_room():
-            await asyncio.sleep(3600)  # 1 jam
+            await asyncio.sleep(120)  # 1 jam
             room = rooms[cid].get(room_id)
             if room:
                 await client.send_message(room["sender"], "⌛ Room berakhir (1 jam)")
@@ -202,22 +243,38 @@ async def confess_handler(event, client):
 
     # === Relay pesan dalam room ===
     for rid, room in list(rooms[cid].items()):
-        if sender_id in [room["sender"], room["target"]]:
+        if sender_id in (room["sender"], room["target"]):
             to = room["target"] if sender_id == room["sender"] else room["sender"]
-            await client.send_message(to, text)
             room["messages"].append(event.message.id)
+            await client.send_message(to, text)
             return
 
-    # === Endchat manual ===
-    if text == "/endchat" and event.is_reply:
-        reply_id = event.message.reply_to_msg_id
-        for rid, room in list(rooms[cid].items()):
-            if reply_id in room["messages"]:
+    # === Endchat ===
+    if text == "/endchat":
+        # Mode 1: reply ke pesan room
+        if event.is_reply:
+            reply_id = event.message.reply_to_msg_id
+            for rid, room in list(rooms[cid].items()):
+                if reply_id in room["messages"]:
+                    room["expire"].cancel()
+                    rooms[cid].pop(rid, None)
+                    await client.send_message(room["sender"], "✅ Room selesai")
+                    await client.send_message(room["target"], "✅ Room selesai")
+                    return
+
+        # Mode 2: tanpa reply, tutup room aktif milik user
+        active_rid = _user_in_active_room(cid, sender_id)
+        if active_rid:
+            room = rooms[cid].get(active_rid)
+            if room:
                 room["expire"].cancel()
-                rooms[cid].pop(rid, None)
+                rooms[cid].pop(active_rid, None)
                 await client.send_message(room["sender"], "✅ Room selesai")
                 await client.send_message(room["target"], "✅ Room selesai")
                 return
+
+        await event.reply("ℹ️ Tidak ada room anonim aktif untuk diakhiri.")
+        return
 
 
 
