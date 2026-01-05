@@ -263,17 +263,15 @@ async def confess_handler(event, client):
 
     # === Endchat ===
     if text == "/endchat":
-        active_rid = _user_in_active_room(cid, sender_id)
-        if active_rid:
-            room = rooms[cid].get(active_rid)
-            if room:
+        for rid, room in list(rooms[cid].items()):
+            if event.chat_id in (room["sender"], room["target"]):
                 room["expire"].cancel()
-                rooms[cid].pop(active_rid, None)
                 await client.send_message(room["sender"], "✅ Room selesai")
                 await client.send_message(room["target"], "✅ Room selesai")
                 return
         await event.reply("ℹ️ Tidak ada room anonim aktif untuk diakhiri.")
         return
+        
 
 
 
