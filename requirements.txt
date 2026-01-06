@@ -6,3 +6,4 @@ beautifulsoup4
 yt-dlp
 SpeechRecognition
 pydub
+aiohttp
