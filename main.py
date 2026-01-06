@@ -127,7 +127,7 @@ async def ai_handler(event, client):
         # panggil API
         url = f"https://api.siputzx.my.id/api/ai/metaai?query={input_text}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=10) as resp:
+            async with session.get(url, timeout=20) as resp:
                 data = await resp.json()
 
         if data.get("status") and "data" in data:
