@@ -123,11 +123,14 @@ async def ai_handler(event, client):
         await event.reply("❌ Harus ada teks atau reply pesan.")
         return
 
+    # 🔄 pesan loading keren
+    loading_msg = await event.reply("🤖✨ AI sedang berpikir keras...")
+
     try:
         # panggil API
         url = f"https://api.siputzx.my.id/api/ai/metaai?query={input_text}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=20) as resp:
+            async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
         if data.get("status") and "data" in data:
@@ -135,10 +138,10 @@ async def ai_handler(event, client):
         else:
             output = "⚠ AI tidak memberikan respon."
 
-        await event.reply(f"{output}", parse_mode="markdown")
+        await loading_msg.edit(f"{output}", parse_mode="markdown")
 
     except Exception as e:
-        await event.reply(f"⚠ Error AI: `{e}`")
+        await loading_msg.edit(f"⚠ Error AI: `{e}`")
 
 
 
@@ -842,6 +845,9 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
         await event.reply("❌ Reply harus ke voice note/audio")
         return
 
+    # 🔄 kirim pesan loading
+    loading_msg = await event.reply("🎙 Sedang mengubah VN ke teks...")
+
     try:
         folder = "111VNtoText"
         os.makedirs(folder, exist_ok=True)
@@ -870,12 +876,7 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
             "🎙 **VN → Text**\n\n"
             f"📝 {text}"
         )
-        await client.send_message(event.chat_id, caption, parse_mode="markdown")
-
-        if log_channel:
-            await client.send_message(log_channel, caption, parse_mode="markdown")
-        if log_admin:
-            await client.send_message(log_admin, caption, parse_mode="markdown")
+        await loading_msg.edit(event.chat_id, caption, parse_mode="markdown")
 
         # Bersihkan file
         for f in [file_path, wav_path]:
@@ -883,11 +884,8 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
                 os.remove(f)
 
     except Exception as e:
-        await event.reply(f"⚠ Error VN→Text: `{e}`", parse_mode="markdown")
-        if log_admin:
-            await client.send_message(log_admin, f"⚠ Error VN→Text: `{e}`", parse_mode="markdown")
-
-
+        await loading_msg.edit(f"⚠ Error VN→Text: `{e}`", parse_mode="markdown")
+        
 
 
 
