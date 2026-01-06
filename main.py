@@ -89,10 +89,8 @@ start_time_global = datetime.now()
 
 
 # === FITUR: AI CHAT ===
-import requests
-from telethon import events
 
-async def ai_handler(event, client, account_config):
+async def ai_handler(event, client):
     # hanya aktif di private chat
     if not event.is_private:
         return
