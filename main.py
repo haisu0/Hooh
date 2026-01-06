@@ -876,7 +876,7 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
             "🎙 **VN → Text**\n\n"
             f"📝 {text}"
         )
-        await loading_msg.edit(event.chat_id, caption, parse_mode="markdown")
+        await loading_msg.edit(caption, parse_mode="markdown")
 
         # Bersihkan file
         for f in [file_path, wav_path]:
