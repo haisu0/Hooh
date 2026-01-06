@@ -121,7 +121,7 @@ async def ai_handler(event, client):
         else:
             output = "⚠ AI tidak memberikan respon."
 
-        await event.reply(f"🤖 **AI Response**\n\n{output}")
+        await event.reply(f"{output}", parse_mode="markdown")
 
     except Exception as e:
         await event.reply(f"⚠ Error AI: `{e}`")
