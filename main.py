@@ -88,6 +88,8 @@ start_time_global = datetime.now()
 
 
 
+
+
 # === FITUR: AI CHAT ===
 
 async def ai_handler(event, client):
@@ -99,12 +101,18 @@ async def ai_handler(event, client):
     if event.sender_id != me.id:
         return
 
-    # ambil teks dari argumen atau reply
+    # Ambil teks dari argumen
     input_text = (event.pattern_match.group(1) or "").strip()
-    if event.is_reply and not input_text:
+
+    # Kalau ada reply, pakai isi reply sebagai input utama
+    if event.is_reply:
         reply = await event.get_reply_message()
         if reply and reply.message:
-            input_text = reply.message.strip()
+            # kalau ada argumen tambahan, bisa digabung
+            if input_text:
+                input_text = f"{input_text}\n\n{reply.message.strip()}"
+            else:
+                input_text = reply.message.strip()
 
     if not input_text:
         await event.reply("❌ Harus ada teks atau reply pesan.")
