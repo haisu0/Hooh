@@ -823,7 +823,12 @@ async def tekateki_answer_handler(event, client):
 
 
 
-# === FITUR: VN TO TEXT (Reply Only, SpeechRecognition) ===
+# === FITUR: VN TO TEXT (Reply Only, SpeechRecognition) === 
+import os
+import speech_recognition as sr
+from pydub import AudioSegment
+import asyncio
+
 async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
     if not event.is_private:
         return
@@ -842,32 +847,35 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
         os.makedirs(folder, exist_ok=True)
         file_path = await reply.download_media(file=folder)
 
-        # Konversi OGG → WAV
         wav_path = file_path + ".wav"
-        AudioSegment.from_file(file_path).export(wav_path, format="wav")
 
-        # Gunakan SpeechRecognition
+        # Jalankan konversi audio di thread terpisah
+        await asyncio.to_thread(AudioSegment.from_file(file_path).export, wav_path, format="wav")
+
+        # Jalankan speech recognition di thread terpisah
         recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_path) as source:
-            audio_data = recognizer.record(source)
+        def recognize():
+            with sr.AudioFile(wav_path) as source:
+                audio_data = recognizer.record(source)
+            try:
+                return recognizer.recognize_google(audio_data, language="id-ID")
+            except sr.UnknownValueError:
+                return "Tidak bisa mengenali suara"
+            except sr.RequestError as e:
+                return f"Error API: {e}"
 
-        try:
-            text = recognizer.recognize_google(audio_data, language="id-ID")
-        except sr.UnknownValueError:
-            text = "Tidak bisa mengenali suara"
-        except sr.RequestError as e:
-            text = f"Error API: {e}"
+        text = await asyncio.to_thread(recognize)
 
         caption = (
             "🎙 **VN → Text**\n\n"
             f"📝 {text}"
         )
-        await client.send_message(event.chat_id, caption)
+        await client.send_message(event.chat_id, caption, parse_mode="markdown")
 
         if log_channel:
-            await client.send_message(log_channel, caption)
+            await client.send_message(log_channel, caption, parse_mode="markdown")
         if log_admin:
-            await client.send_message(log_admin, caption)
+            await client.send_message(log_admin, caption, parse_mode="markdown")
 
         # Bersihkan file
         for f in [file_path, wav_path]:
@@ -875,9 +883,9 @@ async def vn_to_text_handler(event, client, log_channel=None, log_admin=None):
                 os.remove(f)
 
     except Exception as e:
-        await event.reply(f"⚠ Error VN→Text: `{e}`")
+        await event.reply(f"⚠ Error VN→Text: `{e}`", parse_mode="markdown")
         if log_admin:
-            await client.send_message(log_admin, f"⚠ Error VN→Text: `{e}`")
+            await client.send_message(log_admin, f"⚠ Error VN→Text: `{e}`", parse_mode="markdown")
 
 
 
