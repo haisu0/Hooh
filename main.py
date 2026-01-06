@@ -87,28 +87,6 @@ start_time_global = datetime.now()
 
 
 
-from telethon import Button
-
-@client.on(events.NewMessage(pattern="/menu"))
-async def handler(event):
-    buttons = [
-        [
-            Button.inline("😊 About Me", b"about"),
-            Button.inline("🔒 Close", b"close")
-        ]
-    ]
-    await event.respond("Pilih menu:", buttons=buttons)
-
-# Handler untuk callback tombol
-@client.on(events.CallbackQuery)
-async def callback(event):
-    if event.data == b"about":
-        await event.answer("Ini tentang saya 😊", alert=True)
-    elif event.data == b"close":
-        await event.delete()
-
-
-
 
 # ===== FITUR CONFESS =====
 import asyncio, random, string
