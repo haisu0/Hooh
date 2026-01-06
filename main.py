@@ -71,7 +71,8 @@ ACCOUNTS = [
             "asahotak",
             "siapakahaku",
             "tebakkata",
-            "confess"
+            "confess",
+            "ai"
         ],
     }
 ]
@@ -84,6 +85,48 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+# === FITUR: AI CHAT ===
+import requests
+from telethon import events
+
+async def ai_handler(event, client, account_config):
+    # hanya aktif di private chat
+    if not event.is_private:
+        return
+
+    me = await client.get_me()
+    if event.sender_id != me.id:
+        return
+
+    # ambil teks dari argumen atau reply
+    input_text = (event.pattern_match.group(1) or "").strip()
+    if event.is_reply and not input_text:
+        reply = await event.get_reply_message()
+        if reply and reply.message:
+            input_text = reply.message.strip()
+
+    if not input_text:
+        await event.reply("❌ Harus ada teks atau reply pesan.")
+        return
+
+    try:
+        # panggil API
+        url = f"https://api.siputzx.my.id/api/ai/metaai?query={requests.utils.quote(input_text)}"
+        resp = requests.get(url, timeout=15)
+        data = resp.json()
+
+        if data.get("status") and "data" in data:
+            output = data["data"]
+        else:
+            output = "⚠ AI tidak memberikan respon."
+
+        await event.reply(f"🤖 **AI Response**\n\n{output}")
+
+    except Exception as e:
+        await event.reply(f"⚠ Error AI: `{e}`")
 
 
 
@@ -2669,6 +2712,12 @@ async def main():
 
         if "confess" in acc["features"]:
             client.add_event_handler(lambda e: confess_handler(e, client), events.NewMessage())
+
+        if "ai" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r'^/ai(?:\s+(.*))?$'))
+            async def ai_command_handler(event, c=client):
+                await ai_handler(event, c)
+                             
 
 
 
