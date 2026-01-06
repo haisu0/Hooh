@@ -5,6 +5,7 @@ import asyncio
 import os
 import re
 import mimetypes
+import aiohttp
 import speech_recognition as sr
 from pydub import AudioSegment
 from telethon import types
@@ -90,6 +91,10 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+
 # === FITUR: AI CHAT ===
 
 async def ai_handler(event, client):
@@ -120,9 +125,10 @@ async def ai_handler(event, client):
 
     try:
         # panggil API
-        url = f"https://api.siputzx.my.id/api/ai/metaai?query={requests.utils.quote(input_text)}"
-        resp = requests.get(url, timeout=15)
-        data = resp.json()
+        url = f"https://api.siputzx.my.id/api/ai/metaai?query={input_text}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=10) as resp:
+                data = await resp.json()
 
         if data.get("status") and "data" in data:
             output = data["data"]
