@@ -95,6 +95,7 @@ start_time_global = datetime.now()
 
 
 
+
 # === FITUR: AI CHAT ===
 
 async def ai_handler(event, client):
@@ -113,14 +114,16 @@ async def ai_handler(event, client):
     if event.is_reply:
         reply = await event.get_reply_message()
         if reply:
-            # Ambil caption / teks reply (AMAN untuk media)
-            reply_text = reply.text or reply.raw_text
+            # Jika reply adalah media (foto, video, audio, dokumen), tolak
+            if reply.media:
+                return
 
-            if reply_text:
+            # Ambil isi text dari reply
+            if reply.message:
                 if input_text:
-                    input_text = f"{input_text}\n\n{reply_text.strip()}"
+                    input_text = f"{input_text}\n\n{reply.message.strip()}"
                 else:
-                    input_text = reply_text.strip()
+                    input_text = reply.message.strip()
 
     if not input_text:
         await event.reply("❌ Harus ada teks atau reply pesan.")
