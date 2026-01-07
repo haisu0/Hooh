@@ -109,22 +109,18 @@ async def ai_handler(event, client):
     # Ambil teks dari argumen
     input_text = (event.pattern_match.group(1) or "").strip()
 
-    # Kalau ada reply, ambil isi reply (text/caption)
+    # Jika reply ke pesan lain
     if event.is_reply:
         reply = await event.get_reply_message()
         if reply:
-            # Ambil caption atau text dari reply
-            reply_text = ""
-            if reply.message:  # text atau caption
-                reply_text = reply.message.strip()
-            elif hasattr(reply, "caption") and reply.caption:
-                reply_text = reply.caption.strip()
+            # Ambil caption / teks reply (AMAN untuk media)
+            reply_text = reply.text or reply.raw_text
 
-            # Gabungkan dengan argumen tambahan
-            if input_text and reply_text:
-                input_text = f"{input_text}\n\n{reply_text}"
-            elif reply_text:
-                input_text = reply_text
+            if reply_text:
+                if input_text:
+                    input_text = f"{input_text}\n\n{reply_text.strip()}"
+                else:
+                    input_text = reply_text.strip()
 
     if not input_text:
         await event.reply("❌ Harus ada teks atau reply pesan.")
