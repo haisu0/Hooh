@@ -78,7 +78,8 @@ ACCOUNTS = [
             "tebaklagu",
             "tebakgambar",
             "lengkapikalimat",
-            "tebaklirik"
+            "tebaklirik",
+            "caklontong"
         ],
     }
 ]
@@ -94,6 +95,134 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+# === CLASS CAK LONTONG ===
+class CakLontongGame:
+    def __init__(self, player_x):
+        self.playerX = player_x
+        self.playerO = None
+        self.currentTurn = player_x
+        self.winner = None
+        self.question = None
+        self.answer = None
+        self.desc = None
+        self.names = {player_x: "Pembuat room"}
+        self.timeout_task = None
+
+    async def load_question(self):
+        import requests
+        url = "https://api.vreden.my.id/api/v1/game/caklontong"
+        resp = requests.get(url)
+        data = resp.json()
+        q = data["result"]
+        self.question = q["soal"]
+        self.answer = q["jawaban"].lower().strip()
+        self.desc = q.get("deskripsi", "")
+        
+
+# === STATE GAME PER CHAT ===
+def _ensure_caklontong_state(client, chat_id):
+    if not hasattr(client, "caklontong_rooms"):
+        client.caklontong_rooms = {}
+    if chat_id not in client.caklontong_rooms:
+        client.caklontong_rooms[chat_id] = {}
+
+
+# === HANDLER BUAT / JOIN ROOM ===
+async def caklontong_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_caklontong_state(client, chat_id)
+
+    # Cek apakah sudah ada room PLAYING
+    for r in client.caklontong_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada Cak Lontong berjalan.\nGunakan /nyerah untuk menyerah.")
+            return
+
+    # Cari room waiting
+    waiting_room = None
+    for r in client.caklontong_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
+
+    if waiting_room:
+        if sender == waiting_room["playerX"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu partner join.")
+            return
+
+        # Join sebagai Partner
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+        waiting_room["game"].names[sender] = "Partner"
+
+        # Load soal
+        await waiting_room["game"].load_question()
+        soal = waiting_room["game"].question
+
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
+               f"🤣 Cak Lontong:\n**{soal}**\n\n"
+               f"⏱ Waktu menjawab: 1 menit")
+        await event.respond(msg)
+
+        # Set timeout 1 menit
+        async def timeout_answer():
+            await asyncio.sleep(60)
+            if waiting_room["state"] == "PLAYING":
+                waiting_room["state"] = "FINISHED"
+                await event.respond(
+                    f"⏰ Waktu habis!\nJawaban: **{waiting_room['game'].answer.upper()}**\nℹ️ {waiting_room['game'].desc}"
+                )
+                try: del client.caklontong_rooms[chat_id][waiting_room["id"]]
+                except: pass
+
+        waiting_room["game"].timeout_task = asyncio.create_task(timeout_answer())
+
+    else:
+        # Buat room baru
+        room_id = f"caklontong-{chat_id}-{int(datetime.now().timestamp())}"
+        game = CakLontongGame(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING"}
+        client.caklontong_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /caklontong untuk join.")
+
+
+# === HANDLER JAWABAN ===
+async def caklontong_answer_handler(event, client):
+    chat_id = event.chat_id
+    text = event.raw_text.strip().lower()
+    _ensure_caklontong_state(client, chat_id)
+
+    room = None
+    for r in client.caklontong_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    game = room["game"]
+
+    # Cek jawaban
+    if text == game.answer:
+        room["state"] = "FINISHED"
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        winner_label = game.names.get(event.sender_id, str(event.sender_id))
+        await event.reply(
+            f"✅ Benar!\nJawaban: **{game.answer.upper()}**\nℹ️ {game.desc}\n🏆 Pemenang: <b>{winner_label}</b>",
+            parse_mode="html"
+        )
+        try: del client.caklontong_rooms[chat_id][room["id"]]
+        except: pass
+    else:
+        # Jangan balas kalau salah
+        return
 
 
 
@@ -1829,6 +1958,7 @@ async def surrender_room_handler(event, client):
         ("tebakgambar", "tebakgambar_rooms"),
         ("lengkapikalimat", "lengkapikalimat_rooms"),
         ("tebaklirik", "tebaklirik_rooms"),
+        ("caklontong", "caklontong_rooms"),
     ]
 
     found_room = None
@@ -1883,6 +2013,7 @@ async def cancel_room_handler(event, client):
         ("tebakgambar", "tebakgambar_rooms"),
         ("lengkapikalimat", "lengkapikalimat_rooms"),
         ("tebaklirik", "tebaklirik_rooms"),
+        ("caklontong", "caklontong_rooms"),
     ]
 
     found_room = None
@@ -3521,6 +3652,19 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?!/).*"))
             async def tebaklirik_answer_event(event, c=client):
                 await tebaklirik_answer_handler(event, c)
+
+        # === CAK LONTONG (buat/join room) ===
+        if "caklontong" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:caklontong|cl)$"))
+            async def caklontong_event(event, c=client):
+                await caklontong_handler(event, c)
+
+        # === CAK LONTONG (jawaban user) ===
+        if "caklontong" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^(?!/).*"))
+            async def caklontong_answer_event(event, c=client):
+                await caklontong_answer_handler(event, c)
+
 
 
 
