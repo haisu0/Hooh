@@ -98,6 +98,7 @@ ACCOUNTS = [
             "tekarandom",
             "random",
             "dongeng",
+            "cecan",
         ],
     }
 ]
@@ -113,6 +114,61 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+import aiohttp
+import random
+
+# daftar endpoint cecan
+CECAN_ENDPOINTS = {
+    "china": "https://api.siputzx.my.id/api/r/cecan/china",
+    "indonesia": "https://api.siputzx.my.id/api/r/cecan/indonesia",
+    "japan": "https://api.siputzx.my.id/api/r/cecan/japan",
+    "korea": "https://api.siputzx.my.id/api/r/cecan/korea",
+    "thailand": "https://api.siputzx.my.id/api/r/cecan/thailand",
+    "vietnam": "https://api.siputzx.my.id/api/r/cecan/vietnam",
+}
+
+async def cecan_handler(event, client):
+    # hanya di chat private
+    if not event.is_private:
+        await event.respond("❌ Fitur cecan hanya bisa digunakan di chat private.")
+        return
+
+    # hanya userbot sendiri
+    if event.sender_id != client.uid:
+        await event.respond("❌ Fitur cecan hanya bisa digunakan oleh userbot itu sendiri.")
+        return
+
+    args = event.raw_text.strip().split()
+    if len(args) == 1:
+        # /cecan → random pilih salah satu
+        negara, url = random.choice(list(CECAN_ENDPOINTS.items()))
+    else:
+        # /cecan <negara> → spesifik
+        negara = args[1].lower()
+        url = CECAN_ENDPOINTS.get(negara)
+        if not url:
+            await event.respond("❌ Negara tidak tersedia. Pilih: china, indonesia, japan, korea, thailand, vietnam.")
+            return
+
+    await event.respond(f"📸 Sedang mengambil cecan {negara.capitalize()}...")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+
+        # API biasanya mengembalikan link gambar
+        image = data.get("result") or data.get("image") or None
+        if image:
+            await client.send_file(event.chat_id, image, caption=f"✨ Cecan {negara.capitalize()}")
+        else:
+            await event.respond("❌ Tidak ada gambar ditemukan dari API.")
+
+    except Exception as e:
+        await event.respond(f"❌ Gagal mengambil cecan: {e}")
 
 
 
@@ -6381,6 +6437,12 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/dongeng$"))
             async def dongeng_event(event, c=client):
                 await dongeng_handler(event, c)
+
+        if "cecan" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/cecan(?:\s+\w+)?$"))
+            async def cecan_event(event, c=client):
+                await cecan_handler(event, c)
+
 
                              
 
