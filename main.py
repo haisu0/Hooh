@@ -160,11 +160,15 @@ async def tebaklagu_handler(event, client):
         await waiting_room["game"].load_question()
         song_url = waiting_room["game"].song_url
 
-        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
-               f"🎵 Tebak Lagu:\nDengarkan lagu berikut:\n{song_url}\n\n"
-               f"⏱ Waktu menjawab: 1 menit\n"
-               f"Tebak judul atau artisnya!")
-        await event.respond(msg)
+        # Pesan teks instruksi 
+        msg_text = ( 
+            f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n" 
+            f"🎵 Tebak Lagu:\n" 
+            f"⏱ Waktu menjawab: 1 menit\n" 
+            f"Tebak judul atau artisnya!"
+        ) 
+        await event.respond(msg_text)
+        await client.send_file(chat_id, song_url, caption="🎶 Dengarkan lagunya di sini")
 
         # Set timeout 1 menit
         async def timeout_answer():
