@@ -102,6 +102,7 @@ ACCOUNTS = [
             "brat",
             "blurface",
             "hd",
+            "ulartangga",
         ],
     }
 ]
@@ -119,6 +120,156 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+import random, requests, io
+from datetime import datetime
+from PIL import Image
+from telethon import events
+
+# === CLASS ULAR TANGGA ===
+class SnakeAndLadder:
+    def __init__(self, player1):
+        self.board_size = 100
+        self.snakes_and_ladders = {29:7,24:12,15:37,23:41,72:36,49:86,90:56,75:64,74:95,91:72,97:78}
+        self.players = [player1]
+        self.positions = {player1:1}
+        self.currentTurn = player1
+        self.winner = None
+        self.names = {player1:"Pembuat room"}
+        # load images
+        self.bg_url = "https://i.pinimg.com/originals/2f/68/a7/2f68a7e1eee18556b055418f7305b3c0.jpg"
+        self.p1_url = "https://i.pinimg.com/originals/75/33/22/7533227c53f6c270a96d364b595d6dd5.jpg"
+        self.p2_url = "https://i.pinimg.com/originals/be/68/13/be6813a6086681070b0f886d33ca4df9.jpg"
+        self.bg_img = self._fetch_img(self.bg_url).resize((420,420))
+        self.p1_img = self._fetch_img(self.p1_url).resize((40,40))
+        self.p2_img = self._fetch_img(self.p2_url).resize((40,40))
+
+    def _fetch_img(self,url):
+        r = requests.get(url)
+        return Image.open(io.BytesIO(r.content))
+
+    def add_player(self, player2):
+        if len(self.players)>=2: return False
+        self.players.append(player2)
+        self.positions[player2]=1
+        self.names[player2]="Partner"
+        self.currentTurn = random.choice(self.players)
+        return True
+
+    def roll(self, player):
+        if player!=self.currentTurn: return None,"❌ Bukan giliran kamu."
+        dice = random.randint(1,6)
+        new_pos = self.positions[player]+dice
+        if new_pos>self.board_size: new_pos=self.board_size
+        if new_pos in self.snakes_and_ladders: new_pos=self.snakes_and_ladders[new_pos]
+        self.positions[player]=new_pos
+        if new_pos==self.board_size: self.winner=player
+        if dice!=6 and not self.winner:
+            self.currentTurn = self.players[0] if player==self.players[1] else self.players[1]
+        return dice,new_pos
+
+    def render_board(self):
+        board = self.bg_img.copy()
+        for p in self.players:
+            pos=self.positions[p]
+            img=self.p1_img if p==self.players[0] else self.p2_img
+            x=((pos-1)%10)*40+10
+            y=(9-(pos-1)//10)*40+10
+            board.paste(img,(x,y))
+        buf=io.BytesIO()
+        board.save(buf,format="PNG")
+        buf.seek(0)
+        return buf
+
+# === STATE GAME PER CHAT ===
+def _ensure_game_state(client, chat_id):
+    if not hasattr(client, "snake_rooms"):
+        client.snake_rooms = {}
+    if chat_id not in client.snake_rooms:
+        client.snake_rooms[chat_id] = {}
+
+# === HANDLER BUAT / JOIN ROOM ===
+async def snake_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_game_state(client, chat_id)
+
+    # Cek apakah sudah ada game PLAYING
+    for r in client.snake_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada game berjalan di chat ini.\nGunakan /nyerah untuk mengakhiri sebelum buat room baru.")
+            return
+
+    # Cari room waiting
+    waiting_room = None
+    for r in client.snake_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
+
+    if waiting_room:
+        if sender == waiting_room["player1"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu orang lain untuk join.")
+            return
+        ok = waiting_room["game"].add_player(sender)
+        if not ok:
+            await event.respond("❌ Room sudah penuh.")
+            return
+        waiting_room["player2"] = sender
+        waiting_room["state"] = "PLAYING"
+        buf = waiting_room["game"].render_board()
+        await event.respond(f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\nGiliran pertama: {waiting_room['game'].names[waiting_room['game'].currentTurn]}", file=buf)
+    else:
+        room_id = f"snake-{chat_id}-{int(datetime.now().timestamp())}"
+        game = SnakeAndLadder(sender)
+        new_room = {"id": room_id, "game": game, "player1": sender,
+                    "player2": None, "state": "WAITING"}
+        client.snake_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /ulartangga untuk join.")
+
+# === HANDLER ROLL ===
+async def snake_roll_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    text = event.raw_text.strip().lower()
+    if text != "roll":
+        return
+
+    _ensure_game_state(client, chat_id)
+
+    room = None
+    for r in client.snake_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    game = room["game"]
+    dice,pos = game.roll(sender)
+    if dice is None:
+        await event.reply(pos) # pesan error
+        return
+
+    buf = game.render_board()
+    if game.winner:
+        await event.respond(f"🎲 Dadu: {dice}\n📍 Posisi: {pos}\n🏆 Pemenang: {game.names[sender]}", file=buf)
+        room["state"] = "FINISHED"
+        try: del client.snake_rooms[chat_id][room["id"]]
+        except: pass
+    else:
+        await event.respond(f"🎲 Dadu: {dice}\n📍 Posisi: {pos}\nGiliran: {game.names[game.currentTurn]}", file=buf)
+
+# === HANDLER NYERAH ===
+async def snake_giveup_handler(event, client):
+    chat_id = event.chat_id
+    _ensure_game_state(client, chat_id)
+    if chat_id in client.snake_rooms:
+        for room_id, room in list(client.snake_rooms[chat_id].items()):
+            await event.respond("🛑 Permainan Ular Tangga diakhiri oleh pemain.")
+            del client.snake_rooms[chat_id][room_id]
 
 
 
@@ -6668,6 +6819,25 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/hd(?:\s+.+)?$"))
             async def hd_event(event, c=client):
                 await hd_handler(event, c)
+
+        # === ULAR TANGGA (buat/join room) ===
+        if "ulartangga" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:ulartangga|snake)$"))
+            async def ulartangga_event(event, c=client):
+                await snake_handler(event, c)
+
+        # === ULAR TANGGA (roll dadu) ===
+        if "ulartangga" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^(?:roll)$"))
+            async def ulartangga_roll_event(event, c=client):
+                await snake_roll_handler(event, c)
+
+        # === ULAR TANGGA (nyerah) ===
+        if "ulartangga" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/nyerah$"))
+            async def ulartangga_giveup_event(event, c=client):
+                await snake_giveup_handler(event, c)
+
 
 
 
