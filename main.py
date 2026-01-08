@@ -83,6 +83,7 @@ ACCOUNTS = [
             "tebaktebakan",
             "math",
             "tebakhewan",
+            "susunkata",
         ],
     }
 ]
@@ -98,6 +99,136 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+# === CLASS SUSUN KATA ===
+class SusunKataGame:
+    def __init__(self, player_x):
+        self.playerX = player_x
+        self.playerO = None
+        self.currentTurn = player_x
+        self.winner = None
+        self.soal = None
+        self.tipe = None
+        self.answer = None
+        self.names = {player_x: "Pembuat room"}
+        self.timeout_task = None
+
+    async def load_question(self):
+        import requests
+        url = "https://api.siputzx.my.id/api/games/susunkata"
+        resp = requests.get(url)
+        data = resp.json()
+        q = data["data"]
+        self.soal = q["soal"]
+        self.tipe = q["tipe"]
+        self.answer = q["jawaban"].lower().strip()
+
+
+# === STATE GAME PER CHAT ===
+def _ensure_susunkata_state(client, chat_id):
+    if not hasattr(client, "susunkata_rooms"):
+        client.susunkata_rooms = {}
+    if chat_id not in client.susunkata_rooms:
+        client.susunkata_rooms[chat_id] = {}
+
+
+# === HANDLER BUAT / JOIN ROOM ===
+async def susunkata_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_susunkata_state(client, chat_id)
+
+    # Cek apakah sudah ada room PLAYING
+    for r in client.susunkata_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada Susun Kata berjalan.\nGunakan /nyerah untuk menyerah.")
+            return
+
+    # Cari room waiting
+    waiting_room = None
+    for r in client.susunkata_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
+
+    if waiting_room:
+        if sender == waiting_room["playerX"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu partner join.")
+            return
+
+        # Join sebagai Partner
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+        waiting_room["game"].names[sender] = "Partner"
+
+        # Load soal
+        await waiting_room["game"].load_question()
+        soal = waiting_room["game"].soal
+        tipe = waiting_room["game"].tipe
+
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
+               f"🔤 Susun Kata:\n**{soal}**\nTipe: {tipe}\n\n"
+               f"⏱ Waktu menjawab: 1 menit\n"
+               f"Susun huruf menjadi kata yang benar!")
+        await event.respond(msg)
+
+        # Set timeout 1 menit
+        async def timeout_answer():
+            await asyncio.sleep(60)
+            if waiting_room["state"] == "PLAYING":
+                waiting_room["state"] = "FINISHED"
+                await event.respond(
+                    f"⏰ Waktu habis!\nJawaban: **{waiting_room['game'].answer.upper()}**"
+                )
+                try: del client.susunkata_rooms[chat_id][waiting_room["id"]]
+                except: pass
+
+        waiting_room["game"].timeout_task = asyncio.create_task(timeout_answer())
+
+    else:
+        # Buat room baru
+        room_id = f"susunkata-{chat_id}-{int(datetime.now().timestamp())}"
+        game = SusunKataGame(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING"}
+        client.susunkata_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /susunkata untuk join.")
+
+
+# === HANDLER JAWABAN ===
+async def susunkata_answer_handler(event, client):
+    chat_id = event.chat_id
+    text = event.raw_text.strip().lower()
+    _ensure_susunkata_state(client, chat_id)
+
+    room = None
+    for r in client.susunkata_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    game = room["game"]
+
+    # Cek jawaban
+    if text == game.answer:
+        room["state"] = "FINISHED"
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        winner_label = game.names.get(event.sender_id, str(event.sender_id))
+        await event.reply(
+            f"✅ Benar!\nJawaban: **{game.answer.upper()}**\n🏆 Pemenang: <b>{winner_label}</b>",
+            parse_mode="html"
+        )
+        try: del client.susunkata_rooms[chat_id][room["id"]]
+        except: pass
+    else:
+        # Jangan balas kalau salah
+        return
 
 
 
@@ -2389,6 +2520,7 @@ async def surrender_room_handler(event, client):
         ("tebaktebakan", "tebaktebakan_rooms"),
         ("math", "math_rooms"),
         ("tebakhewan", "tebakhewan_rooms"),
+        ("susunkata", "susunkata_rooms"),
     ]
 
     found_room = None
@@ -2447,6 +2579,7 @@ async def cancel_room_handler(event, client):
         ("tebaktebakan", "tebaktebakan_rooms"),
         ("math", "math_rooms"),
         ("tebakhewan", "tebakhewan_rooms"),
+        ("susunkata", "susunkata_rooms"),
     ]
 
     found_room = None
@@ -4133,6 +4266,19 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?!/).*"))
             async def tebakhewan_answer_event(event, c=client):
                 await tebakhewan_answer_handler(event, c)
+
+        # === SUSUN KATA (buat/join room) ===
+        if "susunkata" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:susunkata|sk)$"))
+            async def susunkata_event(event, c=client):
+                await susunkata_handler(event, c)
+
+        # === SUSUN KATA (jawaban user) ===
+        if "susunkata" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^(?!/).*"))
+            async def susunkata_answer_event(event, c=client):
+                await susunkata_answer_handler(event, c)
+
 
 
 
