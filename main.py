@@ -94,6 +94,9 @@ ACCOUNTS = [
             "ccpkn",
             "ccpenjas",
             "cctik",
+            "ccrandom",
+            "tekarandom",
+            "random",
         ],
     }
 ]
@@ -108,6 +111,121 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+
+import random
+
+# === RANDOM CERDAS CERMAT ===
+async def random_cc_handler(event, client):
+    pilihan = random.choice([
+        ("ccmath", "Cerdas Cermat Matematika"),
+        ("ccipa", "Cerdas Cermat IPA"),
+        ("ccips", "Cerdas Cermat IPS"),
+        ("ccbindo", "Cerdas Cermat Bindo"),
+        ("ccbing", "Cerdas Cermat Bing"),
+        ("ccjawa", "Cerdas Cermat Jawa"),
+        ("ccpai", "Cerdas Cermat PAI"),
+        ("ccpkn", "Cerdas Cermat PKN"),
+        ("ccpenjas", "Cerdas Cermat Penjas"),
+        ("cctik", "Cerdas Cermat TIK")
+    ])
+
+    kode, nama = pilihan
+    await event.respond(f"🎲 Random memilih game: **{nama}**")
+
+    if kode == "ccmath":
+        return await ccmath_handler(event, client)
+    elif kode == "ccipa":
+        return await ccipa_handler(event, client)
+    elif kode == "ccips":
+        return await ccips_handler(event, client)
+    elif kode == "ccbindo":
+        return await ccbindo_handler(event, client)
+    elif kode == "ccbing":
+        return await ccbing_handler(event, client)
+    elif kode == "ccjawa":
+        return await ccjawa_handler(event, client)
+    elif kode == "ccpai":
+        return await ccpai_handler(event, client)
+    elif kode == "ccpkn":
+        return await ccpkn_handler(event, client)
+    elif kode == "ccpenjas":
+        return await ccpenjas_handler(event, client)
+    elif kode == "cctik":
+        return await cctik_handler(event, client)
+
+
+# === RANDOM TEKA-TEKI ===
+async def random_teka_handler(event, client):
+    pilihan = random.choice([
+        ("tebakangka", "Teka-teki Angka"),
+        ("tebakgambar", "Teka-teki Gambar"),
+        ("tebaklogika", "Teka-teki Logika")
+    ])
+
+    kode, nama = pilihan
+    await event.respond(f"🎲 Random memilih game: **{nama}**")
+
+    if kode == "tebakangka":
+        return await tebakangka_handler(event, client)
+    elif kode == "tebakgambar":
+        return await tebakgambar_handler(event, client)
+    elif kode == "tebaklogika":
+        return await tebaklogika_handler(event, client)
+
+
+# === RANDOM SEMUA (CERDAS CERMAT + TEKA-TEKI + TICTACTOE) ===
+async def random_all_handler(event, client):
+    pilihan = random.choice([
+        ("ccmath", "Cerdas Cermat Matematika"),
+        ("ccipa", "Cerdas Cermat IPA"),
+        ("ccips", "Cerdas Cermat IPS"),
+        ("ccbindo", "Cerdas Cermat Bindo"),
+        ("ccbing", "Cerdas Cermat Bing"),
+        ("ccjawa", "Cerdas Cermat Jawa"),
+        ("ccpai", "Cerdas Cermat PAI"),
+        ("ccpkn", "Cerdas Cermat PKN"),
+        ("ccpenjas", "Cerdas Cermat Penjas"),
+        ("cctik", "Cerdas Cermat TIK"),
+        ("tebakangka", "Teka-teki Angka"),
+        ("tebakgambar", "Teka-teki Gambar"),
+        ("tebaklogika", "Teka-teki Logika"),
+        ("tictactoe", "TicTacToe")
+    ])
+
+    kode, nama = pilihan
+    await event.respond(f"🎲 Random memilih game: **{nama}**")
+
+    if kode == "ccmath":
+        return await ccmath_handler(event, client)
+    elif kode == "ccipa":
+        return await ccipa_handler(event, client)
+    elif kode == "ccips":
+        return await ccips_handler(event, client)
+    elif kode == "ccbindo":
+        return await ccbindo_handler(event, client)
+    elif kode == "ccbing":
+        return await ccbing_handler(event, client)
+    elif kode == "ccjawa":
+        return await ccjawa_handler(event, client)
+    elif kode == "ccpai":
+        return await ccpai_handler(event, client)
+    elif kode == "ccpkn":
+        return await ccpkn_handler(event, client)
+    elif kode == "ccpenjas":
+        return await ccpenjas_handler(event, client)
+    elif kode == "cctik":
+        return await cctik_handler(event, client)
+    elif kode == "tebakangka":
+        return await tebakangka_handler(event, client)
+    elif kode == "tebakgambar":
+        return await tebakgambar_handler(event, client)
+    elif kode == "tebaklogika":
+        return await tebaklogika_handler(event, client)
+    elif kode == "tictactoe":
+        return await tictactoe_handler(event, client)
 
 
 
@@ -6130,6 +6248,25 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?:[aA]|[bB]|[cC]|[dD])$"))
             async def cctik_answer_event(event, c=client):
                 await cctik_answer_handler(event, c)
+
+        # Random Cerdas Cermat
+        if "ccrandom" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/ccrandom$"))
+            async def random_cc_event(event, c=client):
+                await random_cc_handler(event, c)
+                
+        # Random Teka-teki
+        if "tekarandom" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/tekarandom$"))
+            async def random_teka_event(event, c=client):
+                await random_teka_handler(event, c)
+
+        # Random Semua
+        if "random" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/random$"))
+            async def random_all_event(event, c=client):
+                await random_all_handler(event, c)
+
 
 
 
