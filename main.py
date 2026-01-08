@@ -99,6 +99,7 @@ ACCOUNTS = [
             "random",
             "dongeng",
             "cecan",
+            "brat",
         ],
     }
 ]
@@ -114,6 +115,65 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+
+import aiohttp
+import html
+
+async def brat_handler(event, client):
+    # hanya di chat private
+    if not event.is_private:
+        await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
+        return
+
+    # hanya userbot sendiri
+    if event.sender_id != client.uid:
+        await event.respond("❌ Fitur brat hanya bisa digunakan oleh userbot itu sendiri.")
+        return
+
+    # ambil teks dari argumen atau reply
+    args = event.raw_text.strip().split(maxsplit=1)
+    text = None
+
+    if len(args) > 1:
+        text = args[1]
+    elif event.is_reply:
+        reply_msg = await event.get_reply_message()
+        if reply_msg.text:
+            text = reply_msg.text
+        else:
+            await event.respond("❌ Fitur brat hanya bisa digunakan untuk reply pesan teks, bukan media.")
+            return
+    else:
+        await event.respond("❌ Gunakan `/brat <text>` atau reply pesan teks.")
+        return
+
+    await event.respond("🎀 Sedang membuat brat...")
+
+    try:
+        # panggil API brat
+        url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+
+        image_url = data.get("result") or data.get("image") or None
+        if not image_url:
+            await event.respond("❌ Gagal membuat brat dari API.")
+            return
+
+        caption = f"🎀 Brat untuk teks: {html.escape(text)}"
+
+        # kirim foto dengan caption
+        await client.send_file(event.chat_id, image_url, caption=caption)
+
+        # kirim stiker (Telegram butuh file sebagai sticker, jadi kita kirim sebagai sticker)
+        await client.send_file(event.chat_id, image_url, force_document=False, supports_streaming=False, reply_to=event.id, attributes=[client.types.DocumentAttributeSticker()])
+
+    except Exception as e:
+        await event.respond(f"❌ Error brat: {e}")
 
 
 
@@ -6442,6 +6502,12 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/cecan(?:\s+\w+)?$"))
             async def cecan_event(event, c=client):
                 await cecan_handler(event, c)
+
+        if "brat" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/brat(?:\s+.+)?$"))
+            async def brat_event(event, c=client):
+                await brat_handler(event, c)
+
 
 
                              
