@@ -189,7 +189,7 @@ async def kuis_handler(event, client):
         await event.respond("Menunggu partner join...\nGunakan /kuis untuk join.")
 
 
-# === HANDLER JAWABAN ===
+# === HANDLER JAWABAN KUIS ===
 async def kuis_answer_handler(event, client):
     chat_id = event.chat_id
     text = event.raw_text.strip().lower()
@@ -205,23 +205,52 @@ async def kuis_answer_handler(event, client):
 
     game = room["game"]
 
-    # Jawaban hanya a, b, c
+    # Jawaban hanya a, b, c (case-insensitive)
     if text not in ["a", "b", "c"]:
         return
 
+    # Cek apakah pemain sudah pernah menjawab
+    if not hasattr(room, "answered"):
+        room["answered"] = {}
+    if event.sender_id in room["answered"]:
+        await event.reply("❌ Kamu sudah menjawab sekali, tidak bisa menjawab lagi.")
+        return
+
+    # Tandai pemain sudah menjawab
+    room["answered"][event.sender_id] = text
+
+    # Jika benar → langsung menang
     if text == game.answer:
         room["state"] = "FINISHED"
         if game.timeout_task:
             game.timeout_task.cancel()
         winner_label = game.names.get(event.sender_id, str(event.sender_id))
-        await event.reply(f"✅ Benar!\nJawaban: **{game.answer.upper()}**\n🏆 Pemenang: <b>{winner_label}</b>", parse_mode="html")
-        try: del client.kuis_rooms[chat_id][room["id"]]
-        except: pass
-    else:
-        await event.reply(f"❌ Salah!\nJawaban yang benar: **{game.answer.upper()}**")
+        await event.reply(
+            f"✅ Benar!\nJawaban: **{game.answer.upper()}**\n🏆 Pemenang: <b>{winner_label}</b>",
+            parse_mode="html"
+        )
+        try:
+            del client.kuis_rooms[chat_id][room["id"]]
+        except:
+            pass
+        return
+
+    # Jika salah → kirim pesan salah sambil reply
+    await event.reply(f"❌ Jawaban salah: {text.upper()}", reply_to=event.message.id)
+
+    # Cek apakah kedua pemain sudah menjawab
+    if room["playerX"] in room["answered"] and room["playerO"] in room["answered"]:
         room["state"] = "FINISHED"
-        try: del client.kuis_rooms[chat_id][room["id"]]
-        except: pass
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        await event.respond(
+            f"⏹️ Kuis berakhir!\nJawaban yang benar: **{game.answer.upper()}**"
+        )
+        try:
+            del client.kuis_rooms[chat_id][room["id"]]
+        except:
+            pass
+
 
 
 
@@ -2883,11 +2912,12 @@ async def main():
             async def kuis_event(event, c=client):
                 await kuis_handler(event, c)
 
-        # === KUIS (jawaban user: hanya a/b/c) ===
+        # === KUIS (jawaban user: a/b/c huruf kecil maupun besar) ===
         if "kuis" in acc["features"]:
-            @client.on(events.NewMessage(pattern=r"^(?:a|b|c)$"))
+            @client.on(events.NewMessage(pattern=r"^(?:[aA]|[bB]|[cC])$"))
             async def kuis_answer_event(event, c=client):
                 await kuis_answer_handler(event, c)
+
 
 
         # === NYERAH (gabungan semua game) ===
