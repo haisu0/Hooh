@@ -89,6 +89,7 @@ ACCOUNTS = [
             "ccips",
             "ccbindo",
             "ccbing",
+            "ccjawa",
         ],
     }
 ]
@@ -105,6 +106,176 @@ start_time_global = datetime.now()
 
 
 
+
+
+
+import random
+
+# === CLASS CERDAS CERMAT JAWA ===
+class CerdasCermatJawaGame:
+    def __init__(self, player_x):
+        self.playerX = player_x
+        self.playerO = None
+        self.currentTurn = player_x
+        self.winner = None
+        self.question = None
+        self.choices = {}
+        self.answer = None
+        self.names = {player_x: "Pembuat room"}
+        self.timeout_task = None
+        self.answered = {}
+
+    async def load_question(self):
+        import requests
+        url = "https://api.siputzx.my.id/api/games/cc-sd?matapelajaran=jawa&jumlahsoal=5"
+        resp = requests.get(url)
+        data = resp.json()
+        soal_list = data["data"]["soal"]
+        soal = random.choice(soal_list)  # ambil 1 soal random
+
+        self.question = soal["pertanyaan"]
+        # flatten semua_jawaban jadi dict {huruf: teks}
+        choices = {}
+        for opsi in soal["semua_jawaban"]:
+            for huruf, teks in opsi.items():
+                choices[huruf.upper()] = teks
+        self.choices = choices
+        self.answer = soal["jawaban_benar"].lower().strip()
+
+
+# === STATE GAME PER CHAT ===
+def _ensure_ccjawa_state(client, chat_id):
+    if not hasattr(client, "ccjawa_rooms"):
+        client.ccjawa_rooms = {}
+    if chat_id not in client.ccjawa_rooms:
+        client.ccjawa_rooms[chat_id] = {}
+
+
+# === HANDLER BUAT / JOIN ROOM ===
+async def ccjawa_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_ccjawa_state(client, chat_id)
+
+    # Cek apakah sudah ada room PLAYING
+    for r in client.ccjawa_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada Cerdas Cermat Jawa berjalan.\nGunakan /nyerah untuk menyerah.")
+            return
+
+    # Cari room waiting
+    waiting_room = None
+    for r in client.ccjawa_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
+
+    if waiting_room:
+        if sender == waiting_room["playerX"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu partner join.")
+            return
+
+        # Join sebagai Partner
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+        waiting_room["game"].names[sender] = "Partner"
+
+        # Load soal
+        await waiting_room["game"].load_question()
+        soal = waiting_room["game"].question
+        choices = waiting_room["game"].choices
+
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
+               f"📝 Cerdas Cermat Jawa:\n**{soal}**\n\n"
+               + "\n".join([f"{huruf}. {teks}" for huruf, teks in choices.items()])
+               + "\n\n⏱ Waktu menjawab: 1 menit\nJawab hanya dengan `a`, `b`, `c`, atau `d`.")
+        await event.respond(msg)
+
+        # Set timeout 1 menit
+        async def timeout_answer():
+            await asyncio.sleep(60)
+            if waiting_room["state"] == "PLAYING":
+                waiting_room["state"] = "FINISHED"
+                await event.respond(
+                    f"⏰ Waktu habis!\nJawaban: **{waiting_room['game'].answer.upper()}**"
+                )
+                try: del client.ccjawa_rooms[chat_id][waiting_room["id"]]
+                except: pass
+
+        waiting_room["game"].timeout_task = asyncio.create_task(timeout_answer())
+
+    else:
+        # Buat room baru
+        room_id = f"ccjawa-{chat_id}-{int(datetime.now().timestamp())}"
+        game = CerdasCermatJawaGame(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING"}
+        client.ccjawa_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /ccjawa untuk join.")
+
+
+# === HANDLER JAWABAN ===
+async def ccjawa_answer_handler(event, client):
+    chat_id = event.chat_id
+    text = event.raw_text.strip().lower()
+    _ensure_ccjawa_state(client, chat_id)
+
+    room = None
+    for r in client.ccjawa_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    game = room["game"]
+
+    # Hanya playerX/playerO yang boleh menjawab
+    if event.sender_id not in (room["playerX"], room["playerO"]):
+        return
+
+    # Jawaban hanya a, b, c, d
+    if text not in ["a", "b", "c", "d"]:
+        return
+
+    # Cek apakah pemain sudah pernah menjawab
+    if event.sender_id in game.answered:
+        await event.reply("❌ Kamu sudah menjawab sekali, tidak bisa menjawab lagi.")
+        return
+
+    # Tandai pemain sudah menjawab
+    game.answered[event.sender_id] = text
+
+    # Jika benar → langsung menang
+    if text == game.answer:
+        room["state"] = "FINISHED"
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        winner_label = game.names.get(event.sender_id, str(event.sender_id))
+        await event.reply(
+            f"✅ Benar!\nJawaban: **{game.answer.upper()}**\n🏆 Pemenang: <b>{winner_label}</b>",
+            parse_mode="html"
+        )
+        try: del client.ccjawa_rooms[chat_id][room["id"]]
+        except: pass
+        return
+
+    # Jika salah → kirim pesan salah sambil reply
+    await event.reply(f"❌ Jawaban salah: {text.upper()}", reply_to=event.message.id)
+
+    # Jika kedua pemain sudah menjawab (dan tidak ada yang benar) → akhiri room
+    pX_done = room["playerX"] in game.answered
+    pO_done = room["playerO"] in game.answered
+    if pX_done and pO_done:
+        room["state"] = "FINISHED"
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        await event.respond(
+            f"⏹️ Cerdas Cermat Jawa berakhir!\nJawaban yang benar: **{game.answer.upper()}**"
+        )
+        try: del client.ccjawa_rooms[chat_id][room["id"]]
+        except: pass
 
 
 
@@ -3382,6 +3553,7 @@ async def surrender_room_handler(event, client):
         ("ccips", "ccips_rooms"),
         ("ccbindo", "ccbindo_rooms"),
         ("ccbing", "ccbing_rooms"),
+        ("ccjawa", "ccjawa_rooms"),
     ]
 
     found_room = None
@@ -3446,6 +3618,7 @@ async def cancel_room_handler(event, client):
         ("ccips", "ccips_rooms"),
         ("ccbindo", "ccbindo_rooms"),
         ("ccbing", "ccbing_rooms"),
+        ("ccjawa", "ccjawa_rooms"),
     ]
 
     found_room = None
@@ -5204,6 +5377,19 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?:[aA]|[bB]|[cC]|[dD])$"))
             async def ccbing_answer_event(event, c=client):
                 await ccbing_answer_handler(event, c)
+
+        # === CERDAS CERMAT JAWA (buat/join room) ===
+        if "ccjawa" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:ccjawa|ccj)$"))
+            async def ccjawa_event(event, c=client):
+                await ccjawa_handler(event, c)
+
+        # === CERDAS CERMAT JAWA (jawaban user: a/b/c/d huruf kecil maupun besar) ===
+        if "ccjawa" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^(?:[aA]|[bB]|[cC]|[dD])$"))
+            async def ccjawa_answer_event(event, c=client):
+                await ccjawa_answer_handler(event, c)
+
 
 
 
