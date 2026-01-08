@@ -939,76 +939,76 @@ from datetime import datetime
 import random
 
 # === CLASS TIC TAC TOE ===
-class TicTacToe:
+class TicTacToeGame:
     def __init__(self, player_x):
-        self.board = [str(i) for i in range(1, 10)]
         self.playerX = player_x
         self.playerO = None
         self.currentTurn = player_x
         self.winner = None
-        self.names = {player_x: "Pembuat room"}  # label nama
+        self.moves = {"X": [], "O": []}
+        self.board = [str(i) for i in range(1, 10)]  # papan default 1-9
+        self.names = {player_x: "Pembuat room"}
+        self.timeout_task = None
 
-    def render(self):
-        mapping = {
-            "X": "❌", "O": "⭕",
-            "1": "1️⃣","2": "2️⃣","3": "3️⃣",
-            "4": "4️⃣","5": "5️⃣","6": "6️⃣",
-            "7": "7️⃣","8": "8️⃣","9": "9️⃣",
-        }
-        return [mapping.get(v, v) for v in self.board]
+    def make_move(self, player, pos):
+        # Tambah langkah baru
+        self.moves[player].append(pos)
 
-    def move(self, player, pos):
-        if pos < 1 or pos > 9: return False
-        if self.board[pos - 1] in ["X", "O"]: return False
-        mark = "X" if player == self.playerX else "O"
-        self.board[pos - 1] = mark
-        self.currentTurn = self.playerO if player == self.playerX else self.playerX
-        self.check_winner()
-        return True
+        # Kalau lebih dari 3, buang langkah paling lama
+        if len(self.moves[player]) > 3:
+            removed = self.moves[player].pop(0)
+            self.board[removed-1] = str(removed)  # reset ke angka default
 
-    def check_winner(self):
-        wins = [(0,1,2),(3,4,5),(6,7,8),
-                (0,3,6),(1,4,7),(2,5,8),
-                (0,4,8),(2,4,6)]
-        for a,b,c in wins:
-            if self.board[a] == self.board[b] == self.board[c] and self.board[a] in ["X","O"]:
-                self.winner = self.board[a]
-                return self.winner
-        if all(v in ["X","O"] for v in self.board):
-            self.winner = "Draw"
-        return self.winner
+        # Update papan dengan langkah aktif
+        self.board[pos-1] = player
+
+    def check_winner(self, player):
+        win_patterns = [
+            [0,1,2],[3,4,5],[6,7,8],  # rows
+            [0,3,6],[1,4,7],[2,5,8],  # cols
+            [0,4,8],[2,4,6]           # diagonals
+        ]
+        active = set(self.moves[player])
+        for pattern in win_patterns:
+            if all((p+1) in active for p in pattern):
+                return True
+        return False
+
+    def render_board(self):
+        b = self.board
+        return f"{b[0]} {b[1]} {b[2]}\n{b[3]} {b[4]} {b[5]}\n{b[6]} {b[7]} {b[8]}"
 
 
 # === STATE GAME PER CHAT ===
-def _ensure_game_state(client, chat_id):
-    if not hasattr(client, "game_rooms"):
-        client.game_rooms = {}
-    if chat_id not in client.game_rooms:
-        client.game_rooms[chat_id] = {}
+def _ensure_ttt_state(client, chat_id):
+    if not hasattr(client, "ttt_rooms"):
+        client.ttt_rooms = {}
+    if chat_id not in client.ttt_rooms:
+        client.ttt_rooms[chat_id] = {}
 
 
 # === HANDLER BUAT / JOIN ROOM ===
 async def tictactoe_handler(event, client):
     chat_id = event.chat_id
     sender = event.sender_id
-    _ensure_game_state(client, chat_id)
+    _ensure_ttt_state(client, chat_id)
 
     # Cek apakah sudah ada room PLAYING
-    for r in client.game_rooms[chat_id].values():
+    for r in client.ttt_rooms[chat_id].values():
         if r["state"] == "PLAYING":
-            await event.respond("❌ Sudah ada game berjalan di chat ini.\nGunakan /nyerah untuk mengakhiri sebelum buat room baru.")
+            await event.respond("❌ Sudah ada TicTacToe berjalan.\nGunakan /nyerah untuk mengakhiri.")
             return
 
     # Cari room waiting
     waiting_room = None
-    for r in client.game_rooms[chat_id].values():
+    for r in client.ttt_rooms[chat_id].values():
         if r["state"] == "WAITING":
             waiting_room = r
             break
 
     if waiting_room:
         if sender == waiting_room["playerX"]:
-            await event.respond("❌ Kamu sudah membuat room ini. Tunggu orang lain untuk join.")
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu partner join.")
             return
 
         # Join sebagai Partner
@@ -1017,37 +1017,31 @@ async def tictactoe_handler(event, client):
         waiting_room["state"] = "PLAYING"
         waiting_room["game"].names[sender] = "Partner"
 
-        # Giliran pertama random
-        waiting_room["game"].currentTurn = random.choice([waiting_room["playerX"], waiting_room["playerO"]])
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
+               f"🎮 TicTacToe dimulai!\n\n"
+               f"{waiting_room['game'].render_board()}\n\n"
+               f"Giliran: X (Pembuat room)\nKetik angka 1-9 untuk isi.")
+        await event.respond(msg)
 
-        arr = waiting_room["game"].render()
-        board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
-        label_turn = waiting_room["game"].names.get(waiting_room["game"].currentTurn)
-        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n{board}\n\n"
-               f"Giliran pertama: <b>{label_turn}</b>")
-        await event.respond(msg, parse_mode="html")
     else:
         # Buat room baru
         room_id = f"tictactoe-{chat_id}-{int(datetime.now().timestamp())}"
-        game = TicTacToe(sender)
-        game.names[sender] = "Pembuat room"
+        game = TicTacToeGame(sender)
         new_room = {"id": room_id,"game": game,"playerX": sender,
                     "playerO": None,"state": "WAITING"}
-        client.game_rooms[chat_id][room_id] = new_room
+        client.ttt_rooms[chat_id][room_id] = new_room
         await event.respond("Menunggu partner join...\nGunakan /tictactoe untuk join.")
 
 
-# === HANDLER LANGKAH ANGKA 1–9 ===
+# === HANDLER MOVE ===
 async def tictactoe_move_handler(event, client):
     chat_id = event.chat_id
+    sender = event.sender_id
     text = event.raw_text.strip()
-    if text not in [str(i) for i in range(1, 10)]:
-        return
-
-    _ensure_game_state(client, chat_id)
+    _ensure_ttt_state(client, chat_id)
 
     room = None
-    for r in client.game_rooms[chat_id].values():
+    for r in client.ttt_rooms[chat_id].values():
         if r["state"] == "PLAYING":
             room = r
             break
@@ -1056,32 +1050,72 @@ async def tictactoe_move_handler(event, client):
 
     game = room["game"]
 
-    if event.sender_id != game.currentTurn:
-        await event.reply("❌ Bukan giliran kamu.")
-        return
-
-    pos = int(text)
-    if not game.move(event.sender_id, pos):
-        await event.reply("❌ Posisi sudah terisi atau tidak valid.")
-        return
-
-    arr = game.render()
-    board = f"{''.join(arr[0:3])}\n{''.join(arr[3:6])}\n{''.join(arr[6:9])}"
-
-    if game.winner:
-        if game.winner == "Draw":
-            msg = f"{board}\n\n🤝 Hasil seri!"
-        else:
-            winner_label = game.names.get(room["playerX"], "Pembuat room") if game.winner == "X" else game.names.get(room["playerO"], "Partner")
-            msg = f"{board}\n\n🏆 Pemenang: {winner_label}"
-        room["state"] = "FINISHED"
-        try: del client.game_rooms[chat_id][room["id"]]
-        except: pass
+    # Tentukan simbol pemain
+    if sender == room["playerX"]:
+        symbol = "X"
+    elif sender == room["playerO"]:
+        symbol = "O"
     else:
-        label_turn = game.names.get(game.currentTurn, str(game.currentTurn))
-        msg = f"{board}\n\nGiliran: <b>{label_turn}</b>"
+        return
 
-    await event.reply(msg, parse_mode="html")
+    # Cek giliran
+    if sender != game.currentTurn:
+        await event.respond("❌ Bukan giliranmu.")
+        return
+
+    # Validasi input angka
+    if not text.isdigit():
+        return
+    pos = int(text)
+    if pos < 1 or pos > 9:
+        return
+
+    # Jalankan move
+    game.make_move(symbol, pos)
+
+    # Cek pemenang
+    if game.check_winner(symbol):
+        room["state"] = "FINISHED"
+        winner_label = game.names.get(sender, str(sender))
+        await event.respond(f"✅ Benar!\n🏆 Pemenang: <b>{winner_label}</b>\n\n{game.render_board()}", parse_mode="html")
+        try: del client.ttt_rooms[chat_id][room["id"]]
+        except: pass
+        return
+
+    # Ganti giliran
+    game.currentTurn = room["playerO"] if sender == room["playerX"] else room["playerX"]
+
+    await event.respond(f"{game.render_board()}\n\nGiliran: {'X' if game.currentTurn == room['playerX'] else 'O'}")
+
+
+# === HANDLER NYERAH ===
+async def tictactoe_surrender_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_ttt_state(client, chat_id)
+
+    room = None
+    for r in client.ttt_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    if sender == room["playerX"]:
+        loser = "X"
+        winner = "O"
+    elif sender == room["playerO"]:
+        loser = "O"
+        winner = "X"
+    else:
+        return
+
+    room["state"] = "FINISHED"
+    await event.respond(f"🏳️ Pemain {loser} menyerah.\n🏆 Pemenang: {winner}")
+    try: del client.ttt_rooms[chat_id][room["id"]]
+    except: pass
+
 
 
 # === HANDLER MENYERAH (gabungan semua game) ===
