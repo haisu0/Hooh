@@ -74,7 +74,8 @@ ACCOUNTS = [
             "tebakkata",
             "confess",
             "ai",
-            "kuis"
+            "kuis",
+            "tebaklagu"
         ],
     }
 ]
@@ -91,6 +92,134 @@ start_time_global = datetime.now()
 
 
 
+
+
+# === CLASS TEBAK LAGU ===
+class TebakLaguGame:
+    def __init__(self, player_x):
+        self.playerX = player_x
+        self.playerO = None
+        self.currentTurn = player_x
+        self.winner = None
+        self.song_url = None
+        self.answer_title = None
+        self.answer_artist = None
+        self.names = {player_x: "Pembuat room"}
+        self.timeout_task = None
+
+    async def load_question(self):
+        import requests
+        url = "https://api.vreden.my.id/api/v1/game/tebak/lagu"
+        resp = requests.get(url)
+        data = resp.json()
+        q = data["result"]
+        self.song_url = q["lagu"]
+        self.answer_title = q["judul"].lower().strip()
+        self.answer_artist = q["artis"].lower().strip()
+
+
+# === STATE GAME PER CHAT ===
+def _ensure_tebaklagu_state(client, chat_id):
+    if not hasattr(client, "tebaklagu_rooms"):
+        client.tebaklagu_rooms = {}
+    if chat_id not in client.tebaklagu_rooms:
+        client.tebaklagu_rooms[chat_id] = {}
+
+
+# === HANDLER BUAT / JOIN ROOM ===
+async def tebaklagu_handler(event, client):
+    chat_id = event.chat_id
+    sender = event.sender_id
+    _ensure_tebaklagu_state(client, chat_id)
+
+    # Cek apakah sudah ada room PLAYING
+    for r in client.tebaklagu_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            await event.respond("❌ Sudah ada Tebak Lagu berjalan.\nGunakan /nyerah untuk menyerah.")
+            return
+
+    # Cari room waiting
+    waiting_room = None
+    for r in client.tebaklagu_rooms[chat_id].values():
+        if r["state"] == "WAITING":
+            waiting_room = r
+            break
+
+    if waiting_room:
+        if sender == waiting_room["playerX"]:
+            await event.respond("❌ Kamu sudah membuat room ini. Tunggu partner join.")
+            return
+
+        # Join sebagai Partner
+        waiting_room["game"].playerO = sender
+        waiting_room["playerO"] = sender
+        waiting_room["state"] = "PLAYING"
+        waiting_room["game"].names[sender] = "Partner"
+
+        # Load soal
+        await waiting_room["game"].load_question()
+        song_url = waiting_room["game"].song_url
+
+        msg = (f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\n\n"
+               f"🎵 Tebak Lagu:\nDengarkan lagu berikut:\n{song_url}\n\n"
+               f"⏱ Waktu menjawab: 1 menit\n"
+               f"Tebak judul atau artisnya!")
+        await event.respond(msg)
+
+        # Set timeout 1 menit
+        async def timeout_answer():
+            await asyncio.sleep(60)
+            if waiting_room["state"] == "PLAYING":
+                waiting_room["state"] = "FINISHED"
+                await event.respond(
+                    f"⏰ Waktu habis!\nJawaban: **{waiting_room['game'].answer_title.title()}** - {waiting_room['game'].answer_artist.title()}"
+                )
+                try: del client.tebaklagu_rooms[chat_id][waiting_room["id"]]
+                except: pass
+
+        waiting_room["game"].timeout_task = asyncio.create_task(timeout_answer())
+
+    else:
+        # Buat room baru
+        room_id = f"tebaklagu-{chat_id}-{int(datetime.now().timestamp())}"
+        game = TebakLaguGame(sender)
+        new_room = {"id": room_id,"game": game,"playerX": sender,
+                    "playerO": None,"state": "WAITING"}
+        client.tebaklagu_rooms[chat_id][room_id] = new_room
+        await event.respond("Menunggu partner join...\nGunakan /tebaklagu untuk join.")
+
+
+# === HANDLER JAWABAN ===
+async def tebaklagu_answer_handler(event, client):
+    chat_id = event.chat_id
+    text = event.raw_text.strip().lower()
+    _ensure_tebaklagu_state(client, chat_id)
+
+    room = None
+    for r in client.tebaklagu_rooms[chat_id].values():
+        if r["state"] == "PLAYING":
+            room = r
+            break
+    if not room:
+        return
+
+    game = room["game"]
+
+    # Cek jawaban (judul atau artis)
+    if text == game.answer_title or text == game.answer_artist:
+        room["state"] = "FINISHED"
+        if game.timeout_task:
+            game.timeout_task.cancel()
+        winner_label = game.names.get(event.sender_id, str(event.sender_id))
+        await event.reply(
+            f"✅ Benar!\nJawaban: **{game.answer_title.title()}** - {game.answer_artist.title()}\n🏆 Pemenang: <b>{winner_label}</b>",
+            parse_mode="html"
+        )
+        try: del client.tebaklagu_rooms[chat_id][room["id"]]
+        except: pass
+    else:
+        # Jangan balas kalau salah
+        return
 
 
 
@@ -1301,6 +1430,7 @@ async def surrender_room_handler(event, client):
         ("siapakahaku", "siapakah_rooms"),
         ("tebakkata", "tebak_rooms"),
         ("kuis", "kuis_rooms"),
+        ("tebaklagu", "tebaklagu_rooms"),
     ]
 
     found_room = None
@@ -1351,6 +1481,7 @@ async def cancel_room_handler(event, client):
         ("siapakahaku", "siapakah_rooms"),
         ("tebakkata", "tebak_rooms"),
         ("kuis", "kuis_rooms"),
+        ("tebaklagu", "tebaklagu_rooms"),
     ]
 
     found_room = None
@@ -2941,6 +3072,19 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^(?:[aA]|[bB]|[cC])$"))
             async def kuis_answer_event(event, c=client):
                 await kuis_answer_handler(event, c)
+
+        # === TEBAK LAGU (buat/join room) ===
+        if "tebaklagu" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/(?:tebaklagu|tl)$"))
+            async def tebaklagu_event(event, c=client):
+                await tebaklagu_handler(event, c)
+
+        # === TEBAK LAGU (jawaban user) ===
+        if "tebaklagu" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^(?!/).*"))
+            async def tebaklagu_answer_event(event, c=client):
+                await tebaklagu_answer_handler(event, c)
+
 
 
 
