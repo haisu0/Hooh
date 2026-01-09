@@ -218,8 +218,8 @@ async def cecan_handler(event, client):
 import aiohttp
 import html
 
-def escape_html(text: str) -> str:
-    return html.escape(text or "")
+def unescape_html(text: str) -> str:
+    return html.unescape(text or "")
 
 async def dongeng_handler(event, client):
     if not event.is_private:
@@ -237,16 +237,17 @@ async def dongeng_handler(event, client):
             async with session.get("https://apizell.web.id/random/dongeng") as resp:
                 data = await resp.json()
 
-        title = escape_html(data.get("title", "Tanpa Judul"))
-        author = escape_html(data.get("author", "Tidak diketahui"))
+        title = unescape_html(data.get("title", "Tanpa Judul"))
+        author = unescape_html(data.get("author", "Tidak diketahui"))
         story_raw = data.get("storyContent", "") or ""
-        story = escape_html(story_raw)
-        source = escape_html(data.get("creator", "Zell API"))
+        story = unescape_html(story_raw)
+        source = unescape_html(data.get("creator", "Zell API"))
         image = data.get("image", "")
 
-        # caption pendek untuk media
+        # caption singkat untuk media (maks 1024 karakter)
         short_caption = f"📖 <b>{title}</b>\n👤 Penulis: {author}"
 
+        # kirim foto dengan caption singkat
         if image:
             await client.send_file(
                 event.chat_id,
@@ -266,7 +267,7 @@ async def dongeng_handler(event, client):
         await event.respond(f"Sumber: {source}", parse_mode="html")
 
     except Exception as e:
-        await event.respond(f"❌ Gagal mengambil dongeng: {escape_html(str(e))}", parse_mode="html")
+        await event.respond(f"❌ Gagal mengambil dongeng: {unescape_html(str(e))}", parse_mode="html")
 
 
 
