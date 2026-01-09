@@ -225,7 +225,7 @@ async def dongeng_handler(event, client):
     if not event.is_private:
         await event.respond("❌ Fitur dongeng hanya bisa digunakan di chat private.")
         return
-        
+
     me = await client.get_me()
     if event.sender_id != me.id:
         return
@@ -244,38 +244,26 @@ async def dongeng_handler(event, client):
         source = escape_html(data.get("creator", "Zell API"))
         image = data.get("image", "")
 
-        caption = (
-            f"📖 <b>{title}</b>\n"
-            f"👤 Penulis: {author}\n\n"
-            f"{story}\n\n"
-            f"Sumber: {source}"
-        )
+        # caption pendek untuk media
+        short_caption = f"📖 <b>{title}</b>\n👤 Penulis: {author}"
 
-        # jika caption terlalu panjang, pecah jadi beberapa pesan
-        if len(caption) <= 4096:
-            if image:
-                await client.send_file(event.chat_id, image, caption=caption, parse_mode="html")
-            else:
-                await event.respond(caption, parse_mode="html")
+        if image:
+            await client.send_file(
+                event.chat_id,
+                image,
+                caption=short_caption,
+                parse_mode="html"
+            )
         else:
-            # kirim foto dengan caption judul + author saja
-            if image:
-                await client.send_file(
-                    event.chat_id,
-                    image,
-                    caption=f"📖 <b>{title}</b>\n👤 Penulis: {author}\n\n(Selengkapnya di bawah)",
-                    parse_mode="html"
-                )
-            else:
-                await event.respond(f"📖 <b>{title}</b>\n👤 Penulis: {author}\n\n(Selengkapnya di bawah)", parse_mode="html")
+            await event.respond(short_caption, parse_mode="html")
 
-            # pecah isi cerita jadi potongan 4096 karakter
-            for i in range(0, len(story), 4096):
-                chunk = story[i:i+4096]
-                await event.respond(chunk, parse_mode="html")
+        # kirim isi cerita terpisah (potongan 4096 karakter)
+        for i in range(0, len(story), 4096):
+            chunk = story[i:i+4096]
+            await event.respond(chunk, parse_mode="html")
 
-            # kirim sumber terakhir
-            await event.respond(f"Sumber: {source}", parse_mode="html")
+        # kirim sumber terakhir
+        await event.respond(f"Sumber: {source}", parse_mode="html")
 
     except Exception as e:
         await event.respond(f"❌ Gagal mengambil dongeng: {escape_html(str(e))}", parse_mode="html")
