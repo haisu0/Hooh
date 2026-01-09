@@ -3615,7 +3615,7 @@ async def ai2_handler(event, client):
             async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
-        if data.get("status") and "data" in data:
+        if data.get("status") and "answer" in data:
             output = data["answer"]
         else:
             output = "⚠ AI tidak memberikan respon."
@@ -3667,7 +3667,7 @@ async def ai3_handler(event, client):
             async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
-        if data.get("status") and "data" in data:
+        if data.get("status") and "answer" in data:
             output = data["result"]
             answer = output["answer"]
             
@@ -3721,7 +3721,7 @@ async def ai4_handler(event, client):
             async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
-        if data.get("status") and "data" in data:
+        if data.get("status") and "response" in data:
             output = data["result"]
             answer = output["response"]
             
@@ -3775,7 +3775,7 @@ async def ai5_handler(event, client):
             async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
-        if data.get("status") and "data" in data:
+        if data.get("status") and "result" in data:
             output = data["result"]
             
         else:
