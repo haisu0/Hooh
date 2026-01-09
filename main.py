@@ -419,22 +419,19 @@ async def blurface_handler(event, client):
 
 
 
+import requests
 import html
 
 async def brat_handler(event, client):
-    # hanya di chat private
     if not event.is_private:
         await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
         return
 
-    # hanya userbot sendiri
     me = await client.get_me()
     if event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split(maxsplit=1)
-    text = None
-
     if len(args) > 1:
         text = args[1]
     elif event.is_reply:
@@ -442,26 +439,35 @@ async def brat_handler(event, client):
         if reply_msg.text:
             text = reply_msg.text
         else:
-            await event.respond("❌ Fitur brat hanya bisa digunakan untuk reply pesan teks, bukan media.")
+            await event.respond("❌ Reply harus teks.")
             return
     else:
-        await event.respond("❌ Gunakan `/brat <text>` atau reply pesan teks.")
+        await event.respond("❌ Gunakan `/brat <text>` atau reply teks.")
         return
 
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        # langsung kirim link API sebagai foto
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
-        caption = f"🎀 Brat untuk teks: {html.escape(text)}"
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            await event.respond(f"❌ Error brat: {resp.status_code}")
+            return
 
-        await client.send_file(event.chat_id, url, caption=caption)
+        img_bytes = resp.content  # hasil gambar PNG
+
+        await client.send_file(
+            event.chat_id,
+            img_bytes,
+            caption=f"🎀 Brat untuk teks: {html.escape(text)}",
+            force_document=False  # penting: kirim sebagai foto
+        )
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
 
 
-import aiohttp
+import requests
 import random
 
 CECAN_ENDPOINTS = {
@@ -490,19 +496,24 @@ async def cecan_handler(event, client):
 
     await event.respond(f"📸 Sedang mengambil cecan {negara.capitalize()}...")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                await event.respond(f"❌ Error cecan: {resp.status}")
-                return
-            img_bytes = await resp.read()
+    try:
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            await event.respond(f"❌ Error cecan: {resp.status_code}")
+            return
 
-    await client.send_file(
-        event.chat_id,
-        img_bytes,
-        caption=f"✨ Cecan {negara.capitalize()}",
-        force_document=False  # penting: kirim sebagai foto
-    )
+        img_bytes = resp.content
+
+        await client.send_file(
+            event.chat_id,
+            img_bytes,
+            caption=f"✨ Cecan {negara.capitalize()}",
+            force_document=False  # supaya tampil sebagai foto
+        )
+
+    except Exception as e:
+        await event.respond(f"❌ Gagal mengambil cecan: {e}")
+
 
 
 
