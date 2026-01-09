@@ -332,7 +332,7 @@ async def hd_handler(event, client):
     await event.respond(f"🔍 Sedang meng-upscale gambar dengan scale {scale}x...")
 
     try:
-        url = f"https://api.siputzx.my.id/api/iloveimg/upscale/image={image_url}&scale{str(scale)}"
+        url = f"https://api.siputzx.my.id/api/iloveimg/upscale?image={image_url}&scale{str(scale)}"
         await client.send_file(event.chat_id, url, caption=f"✨ HD Upscale {scale}x selesai")
         
     except Exception as e:
@@ -391,7 +391,7 @@ async def blurface_handler(event, client):
     await event.respond("🔍 Sedang memproses blur face...")
 
     try:
-        url = f"https://api.siputzx.my.id/api/iloveimg/blurface/image{image_url}"
+        url = f"https://api.siputzx.my.id/api/iloveimg/blurface?image={image_url}"
         await client.send_file(event.chat_id, url, caption="😎 Blur face selesai")
         
     except Exception as e:
