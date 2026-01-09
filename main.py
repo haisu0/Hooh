@@ -117,6 +117,62 @@ start_time_global = datetime.now()
 
 
 
+async def game_handler(event, client):
+    
+
+    games = [
+        ("tictactoe", "TicTacToe"),
+        ("tekateki", "Teka-teki"),
+        ("asahotak", "Asah Otak"),
+        ("siapakahaku", "Siapakah Aku"),
+        ("tebakkata", "Tebak Kata"),
+        ("kuis", "Kuis"),
+        ("tebaklagu", "Tebak Lagu"),
+        ("tebakgambar", "Tebak Gambar"),
+        ("lengkapikalimat", "Lengkapi Kalimat"),
+        ("tebaklirik", "Tebak Lirik"),
+        ("caklontong", "Cak Lontong"),
+        ("tebaktebakan", "Tebak Tebakan"),
+        ("math", "Math"),
+        ("tebakhewan", "Tebak Hewan"),
+        ("susunkata", "Susun Kata"),
+    ]
+
+    text = "🎮 **Daftar Game yang tersedia:**\n\n"
+    for cmd, name in games:
+        text += f"• `{cmd}` → {name}\n"
+
+    text += "\n📌 Cara main: ketik `/namagame` untuk memulai.\n"
+    text += "Contoh: `/tictactoe` untuk main TicTacToe."
+
+    await event.respond(text)
+
+async def cerdascermat_handler(event, client):
+    
+
+    cc_games = [
+        ("ccmath", "Cerdas Cermat Matematika"),
+        ("ccipa", "Cerdas Cermat IPA"),
+        ("ccips", "Cerdas Cermat IPS"),
+        ("ccbindo", "Cerdas Cermat Bindo"),
+        ("ccbing", "Cerdas Cermat Bing"),
+        ("ccjawa", "Cerdas Cermat Jawa"),
+        ("ccpai", "Cerdas Cermat PAI"),
+        ("ccpkn", "Cerdas Cermat PKN"),
+        ("ccpenjas", "Cerdas Cermat Penjas"),
+        ("cctik", "Cerdas Cermat TIK"),
+    ]
+
+    text = "🧠 **Daftar Cerdas Cermat yang tersedia:**\n\n"
+    for cmd, name in cc_games:
+        text += f"• `{cmd}` → {name}\n"
+
+    text += "\n📌 Cara main: ketik `/namacerdas` untuk memulai.\n"
+    text += "Contoh: `/ccmath` untuk main Cerdas Cermat Matematika."
+
+    await event.respond(text)
+
+
 
 
 import random
@@ -6658,6 +6714,9 @@ async def main():
 
 
 
+
+        client.add_event_handler(lambda e: game_handler(e, client), events.NewMessage(pattern=r"^/game$"))
+        client.add_event_handler(lambda e: cerdascermat_handler(e, client), events.NewMessage(pattern=r"^/cerdascermat$"))
 
 
         # === NYERAH (gabungan semua game) ===
