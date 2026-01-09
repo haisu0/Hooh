@@ -463,7 +463,6 @@ async def brat_handler(event, client):
 
 import aiohttp
 import random
-from telethon import events
 
 CECAN_ENDPOINTS = {
     "china": "https://api.siputzx.my.id/api/r/cecan/china",
@@ -475,12 +474,8 @@ CECAN_ENDPOINTS = {
 }
 
 async def cecan_handler(event, client):
-    if not event.is_private:
-        await event.respond("❌ Fitur cecan hanya bisa digunakan di chat private.")
-        return
-
     me = await client.get_me()
-    if event.sender_id != me.id:
+    if not event.is_private or event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split()
@@ -490,16 +485,24 @@ async def cecan_handler(event, client):
         negara = args[1].lower()
         url = CECAN_ENDPOINTS.get(negara)
         if not url:
-            await event.respond("❌ Negara tidak tersedia. Pilih: china, indonesia, japan, korea, thailand, vietnam.")
+            await event.respond("❌ Negara tidak tersedia.")
             return
 
     await event.respond(f"📸 Sedang mengambil cecan {negara.capitalize()}...")
 
-    try:
-        # langsung kirim link API sebagai foto
-        await client.send_file(event.chat_id, url, caption=f"✨ Cecan {negara.capitalize()}")
-    except Exception as e:
-        await event.respond(f"❌ Gagal mengambil cecan: {e}")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                await event.respond(f"❌ Error cecan: {resp.status}")
+                return
+            img_bytes = await resp.read()
+
+    await client.send_file(
+        event.chat_id,
+        img_bytes,
+        caption=f"✨ Cecan {negara.capitalize()}",
+        force_document=False  # penting: kirim sebagai foto
+    )
 
 
 
