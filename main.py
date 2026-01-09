@@ -434,6 +434,39 @@ async def brat_handler(event, client):
         await event.respond(f"❌ Error brat: {e}")
 
 
+async def brat2_handler(event, client):
+    me = await client.get_me()
+    if not event.is_private or event.sender_id != me.id:
+        return
+
+    args = event.raw_text.strip().split(maxsplit=1)
+    if len(args) > 1:
+        text = args[1]
+    elif event.is_reply:
+        reply_msg = await event.get_reply_message()
+        if reply_msg.text:
+            text = reply_msg.text
+        else:
+            await event.respond("❌ Reply harus teks.")
+            return
+    else:
+        await event.respond("❌ Gunakan `/brat <text>` atau reply teks.")
+        return
+
+    await event.respond("🎀 Sedang membuat brat...")
+
+    try:
+        url = f"https://zelapioffciall.koyeb.app/canvas/bratv2?text={text}"
+        await client.send_file(
+            event.chat_id,
+            url,  # langsung pakai link API
+            caption=f"🎀 Brat untuk teks: {html.escape(text)}",
+            force_document=False  # supaya tampil sebagai foto
+        )
+    except Exception as e:
+        await event.respond(f"❌ Error brat: {e}")
+
+
 
 import random
 
@@ -6750,6 +6783,11 @@ async def main():
             @client.on(events.NewMessage(pattern=r"^/brat(?:\s+.+)?$"))
             async def brat_event(event, c=client):
                 await brat_handler(event, c)
+
+        if "brat" in acc["features"]:
+            @client.on(events.NewMessage(pattern=r"^/brat2(?:\s+.+)?$"))
+            async def brat2_event(event, c=client):
+                await brat2_handler(event, c)
 
         if "blurface" in acc["features"]:
             @client.on(events.NewMessage(pattern=r"^/blurface(?:\s+.+)?$"))
