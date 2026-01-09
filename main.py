@@ -422,8 +422,10 @@ async def blurface_handler(event, client):
 import aiohttp
 import html
 from telethon import events
+from telethon.tl.types import DocumentAttributeSticker
 
-async def brat_handler(event, client):
+@client.on(events.NewMessage(pattern=r"^/brat(?:\s+(.+))?$"))
+async def brat_handler(event):
     # hanya di chat private
     if not event.is_private:
         await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
@@ -435,11 +437,11 @@ async def brat_handler(event, client):
         return
 
     # ambil teks dari argumen atau reply
-    args = event.raw_text.strip().split(maxsplit=1)
+    args = event.pattern_match.group(1)
     text = None
 
-    if len(args) > 1:
-        text = args[1]
+    if args:
+        text = args.strip()
     elif event.is_reply:
         reply_msg = await event.get_reply_message()
         if reply_msg.text:
@@ -475,11 +477,12 @@ async def brat_handler(event, client):
             force_document=False,
             supports_streaming=False,
             reply_to=event.id,
-            attributes=[client.types.DocumentAttributeSticker()]
+            attributes=[DocumentAttributeSticker()]
         )
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
+
 
 
 
