@@ -443,7 +443,7 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
+        url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500.jpg"
         await client.send_file(
             event.chat_id,
             url,  # langsung pakai link API
