@@ -419,16 +419,11 @@ async def blurface_handler(event, client):
 
 
 
-import requests
 import html
 
 async def brat_handler(event, client):
-    if not event.is_private:
-        await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
-        return
-
     me = await client.get_me()
-    if event.sender_id != me.id:
+    if not event.is_private or event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split(maxsplit=1)
@@ -449,25 +444,17 @@ async def brat_handler(event, client):
 
     try:
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
-        resp = requests.get(url)
-        if resp.status_code != 200:
-            await event.respond(f"❌ Error brat: {resp.status_code}")
-            return
-
-        img_bytes = resp.content  # hasil gambar PNG
-
         await client.send_file(
             event.chat_id,
-            img_bytes,
+            url,  # langsung pakai link API
             caption=f"🎀 Brat untuk teks: {html.escape(text)}",
-            force_document=False  # penting: kirim sebagai foto
+            force_document=False  # supaya tampil sebagai foto
         )
-
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
 
 
-import requests
+
 import random
 
 CECAN_ENDPOINTS = {
@@ -497,23 +484,14 @@ async def cecan_handler(event, client):
     await event.respond(f"📸 Sedang mengambil cecan {negara.capitalize()}...")
 
     try:
-        resp = requests.get(url)
-        if resp.status_code != 200:
-            await event.respond(f"❌ Error cecan: {resp.status_code}")
-            return
-
-        img_bytes = resp.content
-
         await client.send_file(
             event.chat_id,
-            img_bytes,
+            url,  # langsung pakai link API
             caption=f"✨ Cecan {negara.capitalize()}",
-            force_document=False  # supaya tampil sebagai foto
+            force_document=False  # penting: kirim sebagai foto
         )
-
     except Exception as e:
         await event.respond(f"❌ Gagal mengambil cecan: {e}")
-
 
 
 
