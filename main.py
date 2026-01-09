@@ -248,10 +248,10 @@ class SusunKataGame:
 
     async def load_question(self):
         import requests
-        url = "https://api.siputzx.my.id/api/games/susunkata"
+        url = "https://api.vreden.my.id/api/v1/game/susunkata"
         resp = requests.get(url)
         data = resp.json()
-        q = data["data"]
+        q = data["result"]
         self.soal = q["soal"]
         self.tipe = q["tipe"]
         self.answer = q["jawaban"].lower().strip()
