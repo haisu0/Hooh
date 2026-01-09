@@ -337,7 +337,7 @@ async def hd_handler(event, client):
                 "https://api.siputzx.my.id/api/iloveimg/upscale",
                 data={"image": image_url, "scale": str(scale)}
             ) as resp:
-                data = await resp.content
+                data = await resp.read()
 
         result_url = data.get("result") or data.get("image")
         if result_url:
@@ -406,7 +406,7 @@ async def blurface_handler(event, client):
                 "https://api.siputzx.my.id/api/iloveimg/blurface",
                 data={"image": image_url}
             ) as resp:
-                data = await resp.content
+                data = await resp.read()
 
         result_url = data.get("result") or data.get("image")
         if result_url:
@@ -457,7 +457,7 @@ async def brat_handler(event, client):
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
-                data = await resp.content
+                data = await resp.read()
 
         image_url = data.get("result") or data.get("image") or None
         if not image_url:
