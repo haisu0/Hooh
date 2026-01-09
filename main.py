@@ -271,9 +271,20 @@ async def random_cc_handler(event, client):
 # === RANDOM TEKA-TEKI ===
 async def random_teka_handler(event, client):
     pilihan = random.choice([
-        ("tebakangka", "Teka-teki Angka"),
-        ("tebakgambar", "Teka-teki Gambar"),
-        ("tebaklogika", "Teka-teki Logika")
+        ("tekateki", "Teka-teki"),
+        ("asahotak", "Asah Otak"),
+        ("siapakahaku", "Siapakah Aku"),
+        ("tebakkata", "Tebak Kata"),
+        ("kuis", "Kuis"),
+        ("tebaklagu", "Tebak Lagu"),
+        ("tebakgambar", "Tebak Gambar"),
+        ("lengkapikalimat", "Lengkapi Kalimat"),
+        ("tebaklirik", "Tebak Lirik"),
+        ("caklontong", "Cak Lontong"),
+        ("tebaktebakan", "Tebak Tebakan"),
+        ("math", "Math"),
+        ("tebakhewan", "Tebak Hewan"),
+        ("susunkata", "Susun Kata")
     ])
 
     kode, nama = pilihan
@@ -300,10 +311,21 @@ async def random_all_handler(event, client):
         ("ccpkn", "Cerdas Cermat PKN"),
         ("ccpenjas", "Cerdas Cermat Penjas"),
         ("cctik", "Cerdas Cermat TIK"),
-        ("tebakangka", "Teka-teki Angka"),
-        ("tebakgambar", "Teka-teki Gambar"),
-        ("tebaklogika", "Teka-teki Logika"),
-        ("tictactoe", "TicTacToe")
+        ("tictactoe", "TicTacToe"),
+        ("tekateki", "Teka-teki"),
+        ("asahotak", "Asah Otak"),
+        ("siapakahaku", "Siapakah Aku"),
+        ("tebakkata", "Tebak Kata"),
+        ("kuis", "Kuis"),
+        ("tebaklagu", "Tebak Lagu"),
+        ("tebakgambar", "Tebak Gambar"),
+        ("lengkapikalimat", "Lengkapi Kalimat"),
+        ("tebaklirik", "Tebak Lirik"),
+        ("caklontong", "Cak Lontong"),
+        ("tebaktebakan", "Tebak Tebakan"),
+        ("math", "Math"),
+        ("tebakhewan", "Tebak Hewan"),
+        ("susunkata", "Susun Kata")
     ])
 
     kode, nama = pilihan
@@ -329,14 +351,36 @@ async def random_all_handler(event, client):
         return await ccpenjas_handler(event, client)
     elif kode == "cctik":
         return await cctik_handler(event, client)
-    elif kode == "tebakangka":
-        return await tebakangka_handler(event, client)
-    elif kode == "tebakgambar":
-        return await tebakgambar_handler(event, client)
-    elif kode == "tebaklogika":
-        return await tebaklogika_handler(event, client)
     elif kode == "tictactoe":
         return await tictactoe_handler(event, client)
+    elif kode == "tekateki":
+        return await tekateki_handler(event, client)
+    elif kode == "asahotak":
+        return await asahotak_handler(event, client)
+    elif kode == "siapakahaku":
+        return await siapakahaku_handler(event, client)
+    elif kode == "tebakkata":
+        return await tebakkata_handler(event, client)
+    elif kode == "kuis":
+        return await kuis_handler(event, client)
+    elif kode == "tebaklagu":
+        return await tebaklagu_handler(event, client)
+    elif kode == "tebakgambar":
+        return await tebakgambar_handler(event, client)
+    elif kode == "lengkapikalimat":
+        return await lengkapikalimat_handler(event, client)
+    elif kode == "tebaklirik":
+        return await tebaklirik_handler(event, client)
+    elif kode == "caklontong":
+        return await caklontong_handler(event, client)
+    elif kode == "tebaktebakan":
+        return await tebaktebakan_handler(event, client)
+    elif kode == "math":
+        return await math_handler(event, client)
+    elif kode == "tebakhewan":
+        return await tebakhewan_handler(event, client)
+    elif kode == "susunkata":
+        return await susunkata_handler(event, client)
 
 
 
