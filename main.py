@@ -132,7 +132,11 @@ from telethon import events
 class SnakeAndLadder:
     def __init__(self, player1):
         self.board_size = 100
-        self.snakes_and_ladders = {29:7,24:12,15:37,23:41,72:36,49:86,90:56,75:64,74:95,91:72,97:78}
+        self.snakes_and_ladders = {
+            29:7,24:12,15:37,23:41,
+            72:36,49:86,90:56,75:64,
+            74:95,91:72,97:78
+        }
         self.players = [player1]
         self.positions = {player1:1}
         self.currentTurn = player1
@@ -220,7 +224,10 @@ async def snake_handler(event, client):
         waiting_room["player2"] = sender
         waiting_room["state"] = "PLAYING"
         buf = waiting_room["game"].render_board()
-        await event.respond(f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\nGiliran pertama: {waiting_room['game'].names[waiting_room['game'].currentTurn]}", file=buf)
+        await event.respond(
+            f"Partner ditemukan!\nRoom ID: {waiting_room['id']}\nGiliran pertama: {waiting_room['game'].names[waiting_room['game'].currentTurn]}",
+            file=buf
+        )
     else:
         room_id = f"snake-{chat_id}-{int(datetime.now().timestamp())}"
         game = SnakeAndLadder(sender)
@@ -262,15 +269,6 @@ async def snake_roll_handler(event, client):
     else:
         await event.respond(f"🎲 Dadu: {dice}\n📍 Posisi: {pos}\nGiliran: {game.names[game.currentTurn]}", file=buf)
 
-# === HANDLER NYERAH ===
-async def snake_giveup_handler(event, client):
-    chat_id = event.chat_id
-    _ensure_game_state(client, chat_id)
-    if chat_id in client.snake_rooms:
-        for room_id, room in list(client.snake_rooms[chat_id].items()):
-            await event.respond("🛑 Permainan Ular Tangga diakhiri oleh pemain.")
-            del client.snake_rooms[chat_id][room_id]
-
 
 
 
@@ -286,8 +284,8 @@ async def hd_handler(event, client):
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur HD hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split()
@@ -364,8 +362,8 @@ async def blurface_handler(event, client):
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur blur face hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     image_url = None
@@ -431,8 +429,8 @@ async def brat_handler(event, client):
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur brat hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     # ambil teks dari argumen atau reply
@@ -499,8 +497,8 @@ async def cecan_handler(event, client):
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur cecan hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split()
@@ -545,8 +543,9 @@ async def dongeng_handler(event, client):
     if not event.is_private:
         await event.respond("❌ Fitur dongeng hanya bisa digunakan di chat private.")
         return
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur dongeng hanya bisa digunakan oleh userbot itu sendiri.")
+        
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     await event.respond("📖 Sedang mengambil dongeng random...")
