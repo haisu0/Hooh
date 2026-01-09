@@ -7,3 +7,4 @@ yt-dlp
 SpeechRecognition
 pydub
 aiohttp
+pillow>=10.0.0
