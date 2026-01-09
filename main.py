@@ -419,9 +419,7 @@ async def blurface_handler(event, client):
 
 
 
-import aiohttp
 import html
-from telethon import events
 from telethon.tl.types import DocumentAttributeSticker
 
 async def brat_handler(event, client):
@@ -435,7 +433,6 @@ async def brat_handler(event, client):
     if event.sender_id != me.id:
         return
 
-    # ambil teks dari argumen atau reply
     args = event.raw_text.strip().split(maxsplit=1)
     text = None
 
@@ -455,29 +452,23 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        # panggil API brat (hasilnya gambar PNG)
+        # langsung kirim link API sebagai foto
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    await event.respond(f"❌ Error brat: {resp.status}")
-                    return
-                img_bytes = await resp.read()
-
         caption = f"🎀 Brat untuk teks: {html.escape(text)}"
 
         # kirim foto dengan caption
-        await client.send_file(event.chat_id, img_bytes, caption=caption)
+        await client.send_file(event.chat_id, url, caption=caption)
 
         # kirim juga sebagai sticker
         await client.send_file(
             event.chat_id,
-            img_bytes,
+            url,
             force_document=False,
             supports_streaming=False,
             reply_to=event.id,
-            attributes=[client.types.DocumentAttributeSticker()]
+            attributes=[DocumentAttributeSticker()]
         )
+
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
 
@@ -498,22 +489,18 @@ CECAN_ENDPOINTS = {
 }
 
 async def cecan_handler(event, client):
-    # hanya di chat private
     if not event.is_private:
         await event.respond("❌ Fitur cecan hanya bisa digunakan di chat private.")
         return
 
-    # hanya userbot sendiri
     me = await client.get_me()
     if event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split()
     if len(args) == 1:
-        # /cecan → random pilih salah satu
         negara, url = random.choice(list(CECAN_ENDPOINTS.items()))
     else:
-        # /cecan <negara> → spesifik
         negara = args[1].lower()
         url = CECAN_ENDPOINTS.get(negara)
         if not url:
@@ -523,19 +510,10 @@ async def cecan_handler(event, client):
     await event.respond(f"📸 Sedang mengambil cecan {negara.capitalize()}...")
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    await event.respond(f"❌ Error cecan: {resp.status}")
-                    return
-                img_bytes = await resp.read()  # langsung ambil bytes gambar
-
-        # kirim gambar ke chat
-        await client.send_file(event.chat_id, img_bytes, caption=f"✨ Cecan {negara.capitalize()}")
-
+        # langsung kirim link API sebagai foto
+        await client.send_file(event.chat_id, url, caption=f"✨ Cecan {negara.capitalize()}")
     except Exception as e:
         await event.respond(f"❌ Gagal mengambil cecan: {e}")
-
 
 
 
