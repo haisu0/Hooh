@@ -421,7 +421,6 @@ async def blurface_handler(event, client):
 
 import aiohttp
 import html
-from telethon.tl.types import DocumentAttributeSticker
 
 async def brat_handler(event, client):
     if not event.is_private:
@@ -457,26 +456,15 @@ async def brat_handler(event, client):
                 if resp.status != 200:
                     await event.respond(f"❌ Error brat: {resp.status}")
                     return
-                img_bytes = await resp.read()   # ambil hasil gambar
+                img_bytes = await resp.read()
 
         caption = f"🎀 Brat untuk teks: {html.escape(text)}"
 
         # kirim foto dengan caption
         await client.send_file(event.chat_id, img_bytes, caption=caption)
 
-        # kirim juga sebagai sticker
-        await client.send_file(
-            event.chat_id,
-            img_bytes,
-            force_document=False,
-            supports_streaming=False,
-            reply_to=event.id,
-            attributes=[DocumentAttributeSticker()]
-        )
-
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
-
 
 
 import aiohttp
