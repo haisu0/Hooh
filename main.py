@@ -436,11 +436,11 @@ async def brat_handler(event, client):
         return
 
     # ambil teks dari argumen atau reply
-    args = event.pattern_match.group(1)
+    args = event.raw_text.strip().split(maxsplit=1)
     text = None
 
-    if args:
-        text = args.strip()
+    if len(args) > 1:
+        text = args[1]
     elif event.is_reply:
         reply_msg = await event.get_reply_message()
         if reply_msg.text:
@@ -476,9 +476,8 @@ async def brat_handler(event, client):
             force_document=False,
             supports_streaming=False,
             reply_to=event.id,
-            attributes=[DocumentAttributeSticker()]
+            attributes=[client.types.DocumentAttributeSticker()]
         )
-
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
 
@@ -487,8 +486,8 @@ async def brat_handler(event, client):
 
 import aiohttp
 import random
+from telethon import events
 
-# daftar endpoint cecan
 CECAN_ENDPOINTS = {
     "china": "https://api.siputzx.my.id/api/r/cecan/china",
     "indonesia": "https://api.siputzx.my.id/api/r/cecan/indonesia",
@@ -526,14 +525,13 @@ async def cecan_handler(event, client):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
-                data = await resp.content
+                if resp.status != 200:
+                    await event.respond(f"❌ Error cecan: {resp.status}")
+                    return
+                img_bytes = await resp.read()  # langsung ambil bytes gambar
 
-        # API biasanya mengembalikan link gambar
-        image = data.get("result") or data.get("image") or None
-        if image:
-            await client.send_file(event.chat_id, image, caption=f"✨ Cecan {negara.capitalize()}")
-        else:
-            await event.respond("❌ Tidak ada gambar ditemukan dari API.")
+        # kirim gambar ke chat
+        await client.send_file(event.chat_id, img_bytes, caption=f"✨ Cecan {negara.capitalize()}")
 
     except Exception as e:
         await event.respond(f"❌ Gagal mengambil cecan: {e}")
