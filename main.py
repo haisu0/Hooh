@@ -424,8 +424,7 @@ import html
 from telethon import events
 from telethon.tl.types import DocumentAttributeSticker
 
-@client.on(events.NewMessage(pattern=r"^/brat(?:\s+(.+))?$"))
-async def brat_handler(event):
+async def brat_handler(event, client):
     # hanya di chat private
     if not event.is_private:
         await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
