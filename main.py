@@ -419,14 +419,15 @@ async def blurface_handler(event, client):
 
 
 
-import aiohttp
 import html
 
 async def brat_handler(event, client):
+    # hanya di chat private
     if not event.is_private:
         await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
         return
 
+    # hanya userbot sendiri
     me = await client.get_me()
     if event.sender_id != me.id:
         return
@@ -450,18 +451,11 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
+        # langsung kirim link API sebagai foto
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    await event.respond(f"❌ Error brat: {resp.status}")
-                    return
-                img_bytes = await resp.read()
-
         caption = f"🎀 Brat untuk teks: {html.escape(text)}"
 
-        # kirim foto dengan caption
-        await client.send_file(event.chat_id, img_bytes, caption=caption)
+        await client.send_file(event.chat_id, url, caption=caption)
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
