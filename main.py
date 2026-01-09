@@ -2556,6 +2556,9 @@ class TicTacToe:
         self.names = {player_x: "Pembuat room"}
         self.moves = {"X": [], "O": []}
 
+        # === PILIH PAPAN SECARA RANDOM (1X SAJA) ===
+        self.board_style = random.choice([1, 2])
+
     # Emoji mapping
     def render(self):
         mapping = {
@@ -2566,7 +2569,7 @@ class TicTacToe:
         }
         return [mapping.get(v, v) for v in self.board]
 
-    # === BOARD SEGIEMPAT 9 KOTAK ===
+    # === BOARD STYLE 1 ===
     def render_board_box(self):
         arr = self.render()
         return (
@@ -2578,6 +2581,26 @@ class TicTacToe:
             f"│   {arr[6]}    │   {arr[7]}   │   {arr[8]}    │\n"
             "└────┴────┴────┘"
         )
+
+    # === BOARD STYLE 2 (YANG BARU) ===
+    def render_board_box_style2(self):
+        arr = self.render()
+        return (
+            "╔════╦════╦════╗\n"
+            f"║   {arr[0]}    ║   {arr[1]}   ║   {arr[2]}    ║\n"
+            "╠════╬════╬════╣\n"
+            f"║   {arr[3]}    ║   {arr[4]}   ║   {arr[5]}    ║\n"
+            "╠════╬════╬════╣\n"
+            f"║   {arr[6]}    ║   {arr[7]}   ║   {arr[8]}    ║\n"
+            "╚════╩════╩════╝"
+        )
+
+    # === RENDER UTAMA (DISPATCHER) ===
+    def render_board(self):
+        if self.board_style == 1:
+            return self.render_board_box()
+        else:
+            return self.render_board_box_style2()
 
     def move(self, player, pos):
         if pos < 1 or pos > 9:
@@ -2650,7 +2673,7 @@ async def tictactoe_handler(event, client):
         game.names[sender] = "Partner"
 
         game.currentTurn = random.choice([waiting_room["playerX"], sender])
-        board = game.render_board_box()
+        board = game.render_board()
         turn = game.names[game.currentTurn]
 
         await event.respond(
@@ -2699,7 +2722,7 @@ async def tictactoe_move_handler(event, client):
         await event.reply("❌ Posisi tidak valid.")
         return
 
-    board = game.render_board_box()
+    board = game.render_board()
 
     if game.winner:
         winner = game.names[room["playerX"]] if game.winner == "X" else game.names[room["playerO"]]
