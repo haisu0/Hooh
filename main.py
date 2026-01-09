@@ -421,6 +421,7 @@ async def blurface_handler(event, client):
 
 import aiohttp
 import html
+from telethon import events
 
 async def brat_handler(event, client):
     # hanya di chat private
@@ -453,24 +454,29 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        # panggil API brat
+        # panggil API brat (hasilnya gambar PNG)
         url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
-                data = await resp.read()
-
-        image_url = data.get("result") or data.get("image") or None
-        if not image_url:
-            await event.respond("❌ Gagal membuat brat dari API.")
-            return
+                if resp.status != 200:
+                    await event.respond(f"❌ Error brat: {resp.status}")
+                    return
+                img_bytes = await resp.read()
 
         caption = f"🎀 Brat untuk teks: {html.escape(text)}"
 
         # kirim foto dengan caption
-        await client.send_file(event.chat_id, image_url, caption=caption)
+        await client.send_file(event.chat_id, img_bytes, caption=caption)
 
-        # kirim stiker (Telegram butuh file sebagai sticker, jadi kita kirim sebagai sticker)
-        await client.send_file(event.chat_id, image_url, force_document=False, supports_streaming=False, reply_to=event.id, attributes=[client.types.DocumentAttributeSticker()])
+        # kirim juga sebagai sticker
+        await client.send_file(
+            event.chat_id,
+            img_bytes,
+            force_document=False,
+            supports_streaming=False,
+            reply_to=event.id,
+            attributes=[client.types.DocumentAttributeSticker()]
+        )
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
