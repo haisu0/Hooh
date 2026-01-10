@@ -194,11 +194,9 @@ import random
 VALID_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 
 async def hd_handler(event, client):
-    # hanya di chat private
     if not event.is_private:
         return
 
-    # hanya userbot sendiri
     me = await client.get_me()
     if event.sender_id != me.id:
         return
@@ -210,14 +208,11 @@ async def hd_handler(event, client):
     # cek argumen scale
     if len(args) > 1 and args[1] in ["2", "4"]:
         scale = int(args[1])
-        # kalau ada link setelah scale
         if len(args) > 2:
             image_url = args[2]
     elif len(args) > 1:
-        # kalau argumen bukan 2/4, mungkin link
         image_url = args[1]
 
-    # kalau scale belum ditentukan → random
     if scale is None:
         scale = random.choice([2, 4])
 
@@ -226,14 +221,30 @@ async def hd_handler(event, client):
         if event.is_reply:
             reply_msg = await event.get_reply_message()
             if reply_msg.photo:
-                image_url = await client.download_media(reply_msg, file=bytes)
+                path = await client.download_media(reply_msg)
+                async with aiohttp.ClientSession() as session:
+                    with open(path, "rb") as f:
+                        form = aiohttp.FormData()
+                        form.add_field("reqtype", "fileupload")
+                        form.add_field("fileToUpload", f, filename=path.split("/")[-1])
+                        resp = await session.post("https://catbox.moe/user/api.php", data=form)
+                        uploaded_url = (await resp.text()).strip()
+                image_url = uploaded_url
             elif reply_msg.text and ("http://" in reply_msg.text or "https://" in reply_msg.text):
                 image_url = reply_msg.text.strip()
             else:
                 await event.respond("❌ Reply hanya bisa ke foto atau teks berisi link gambar.")
                 return
         elif event.photo and args[0] == "/hd":
-            image_url = await client.download_media(event.message, file=bytes)
+            path = await client.download_media(event.message)
+            async with aiohttp.ClientSession() as session:
+                with open(path, "rb") as f:
+                    form = aiohttp.FormData()
+                    form.add_field("reqtype", "fileupload")
+                    form.add_field("fileToUpload", f, filename=path.split("/")[-1])
+                    resp = await session.post("https://catbox.moe/user/api.php", data=form)
+                    uploaded_url = (await resp.text()).strip()
+            image_url = uploaded_url
         else:
             await event.respond("❌ Gunakan `/hd`, `/hd 2`, `/hd 4` dengan reply foto, reply teks berisi link gambar, kirim foto dengan caption `/hd`, atau `/hd <link>`.")
             return
@@ -247,10 +258,8 @@ async def hd_handler(event, client):
     await event.respond(f"🔍 Sedang meng-upscale gambar dengan scale {scale}x...")
 
     try:
-        url = f"https://api.siputzx.my.id/api/iloveimg/upscale?image={image_url}&scale={str(scale)}"
-        
+        url = f"https://api.siputzx.my.id/api/iloveimg/upscale?image={image_url}&scale={scale}"
         await client.send_file(event.chat_id, url, caption=f"✨ HD Upscale {scale}x selesai")
-        
     except Exception as e:
         await event.respond(f"❌ Error HD: {e}")
 
