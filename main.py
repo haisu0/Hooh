@@ -356,24 +356,9 @@ async def blurface_handler(event, client):
 
 
 
+import aiohttp
+import os
 import html
-from PIL import Image
-
-# resize ke 512x512 (maks ukuran sticker), jaga aspect ratio
-def to_sticker_webp(src_path: str, dst_path: str):
-    img = Image.open(src_path).convert("RGBA")
-    # scale agar sisi terpanjang = 512
-    max_side = max(img.size)
-    scale = 512 / max_side if max_side > 512 else 1.0
-    new_size = (int(img.size[0] * scale), int(img.size[1] * scale))
-    img = img.resize(new_size, Image.LANCZOS)
-    # buat canvas 512x512 transparan, center
-    canvas = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-    x = (512 - new_size[0]) // 2
-    y = (512 - new_size[1]) // 2
-    canvas.paste(img, (x, y), img)
-    # simpan ke webp (lossless biar tajam)
-    canvas.save(dst_path, "WEBP", lossless=True)
 
 async def brat_handler(event, client):
     # hanya di chat private
@@ -404,61 +389,45 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        # 1) Ambil hasil dari API (PNG)
+        # 1. Panggil API brat
         api_url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as resp:
                 if resp.status != 200:
                     await event.respond("❌ API brat gagal.")
                     return
-                png_path = "brat_result.png"
-                with open(png_path, "wb") as f:
+                path = "brat_result.png"
+                with open(path, "wb") as f:
                     f.write(await resp.read())
 
-        # 2) Upload PNG ke Catbox (link permanen)
+        # 2. Upload hasil ke Catbox
         async with aiohttp.ClientSession() as session:
-            with open(png_path, "rb") as f:
+            with open(path, "rb") as f:
                 form = aiohttp.FormData()
                 form.add_field("reqtype", "fileupload")
-                form.add_field("fileToUpload", f, filename=os.path.basename(png_path))
+                form.add_field("fileToUpload", f, filename=os.path.basename(path))
                 resp = await session.post("https://catbox.moe/user/api.php", data=form)
                 catbox_url = (await resp.text()).strip()
 
         caption = f"🎀 Brat untuk teks: {html.escape(text)}\n🔗 {catbox_url}"
 
-        # 3) Kirim sebagai foto (try/except)
+        # 3. Kirim sebagai foto
         try:
-            await client.send_file(event.chat_id, png_path, caption=caption)
+            await client.send_file(event.chat_id, path, caption=caption)
         except Exception as e:
             await event.respond(f"❌ Error kirim foto brat: {e}")
 
-        # 4) Konversi ke WEBP untuk stiker
-        webp_path = "brat_sticker.webp"
+        # 4. Kirim sebagai stiker
         try:
-            to_sticker_webp(png_path, webp_path)
-        except Exception as e:
-            await event.respond(f"❌ Error konversi ke stiker: {e}")
-            # tetap hapus PNG kalau gagal konversi
-            if os.path.exists(png_path):
-                os.remove(png_path)
-            return
-
-        # 5) Kirim sebagai stiker (try/except)
-        try:
-            # kirim file .webp — Telegram akan mengenali sebagai stiker jika format & ukuran sesuai
-            await client.send_file(event.chat_id, webp_path, caption="🎀 Stiker brat")
+            await client.send_file(event.chat_id, path, force_document=False, reply_to=event.id)
         except Exception as e:
             await event.respond(f"❌ Error kirim stiker brat: {e}")
 
-        # 6) Bersih-bersih file lokal
-        if os.path.exists(png_path):
-            os.remove(png_path)
-        if os.path.exists(webp_path):
-            os.remove(webp_path)
+        # 5. Hapus file lokal biar gak penuh
+        os.remove(path)
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
-
 
 
 
