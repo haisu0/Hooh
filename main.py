@@ -196,12 +196,11 @@ VALID_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 async def hd_handler(event, client):
     # hanya di chat private
     if not event.is_private:
-        await event.respond("❌ Fitur HD hanya bisa digunakan di chat private.")
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur HD hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     args = event.raw_text.strip().split()
@@ -265,12 +264,11 @@ VALID_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 async def blurface_handler(event, client):
     # hanya di chat private
     if not event.is_private:
-        await event.respond("❌ Fitur blur face hanya bisa digunakan di chat private.")
         return
 
     # hanya userbot sendiri
-    if event.sender_id != client.uid:
-        await event.respond("❌ Fitur blur face hanya bisa digunakan oleh userbot itu sendiri.")
+    me = await client.get_me()
+    if event.sender_id != me.id:
         return
 
     image_url = None
@@ -323,7 +321,6 @@ import html
 async def brat_handler(event, client):
     # hanya di chat private
     if not event.is_private:
-        await event.respond("❌ Fitur brat hanya bisa digunakan di chat private.")
         return
 
     # hanya userbot sendiri
