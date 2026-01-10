@@ -359,6 +359,8 @@ async def blurface_handler(event, client):
 
 
 
+import aiohttp
+import os
 import html
 
 async def brat_handler(event, client):
@@ -390,11 +392,42 @@ async def brat_handler(event, client):
     await event.respond("🎀 Sedang membuat brat...")
 
     try:
-        # langsung kirim link API sebagai foto
-        url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
-        caption = f"🎀 Brat untuk teks: {html.escape(text)}"
+        # 1. Panggil API brat
+        api_url = f"https://api.siputzx.my.id/api/m/brat?text={text}&isAnimated=false&delay=500"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                if resp.status != 200:
+                    await event.respond("❌ API brat gagal.")
+                    return
+                path = "brat_result.png"
+                with open(path, "wb") as f:
+                    f.write(await resp.read())
 
-        await client.send_file(event.chat_id, url, caption=caption)
+        # 2. Upload hasil ke Catbox
+        async with aiohttp.ClientSession() as session:
+            with open(path, "rb") as f:
+                form = aiohttp.FormData()
+                form.add_field("reqtype", "fileupload")
+                form.add_field("fileToUpload", f, filename=os.path.basename(path))
+                resp = await session.post("https://catbox.moe/user/api.php", data=form)
+                catbox_url = (await resp.text()).strip()
+
+        caption = f"🎀 Brat untuk teks: {html.escape(text)}\n🔗 {catbox_url}"
+
+        # 3. Kirim sebagai foto
+        try:
+            await client.send_file(event.chat_id, path, caption=caption)
+        except Exception as e:
+            await event.respond(f"❌ Error kirim foto brat: {e}")
+
+        # 4. Kirim sebagai stiker
+        try:
+            await client.send_file(event.chat_id, path, force_document=False, reply_to=event.id)
+        except Exception as e:
+            await event.respond(f"❌ Error kirim stiker brat: {e}")
+
+        # 5. Hapus file lokal biar gak penuh
+        os.remove(path)
 
     except Exception as e:
         await event.respond(f"❌ Error brat: {e}")
