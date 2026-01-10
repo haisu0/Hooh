@@ -4032,7 +4032,7 @@ async def simsimi_handler(event, client):
             async with session.get(url, timeout=60) as resp:
                 data = await resp.json()
 
-        if data.get("status") and "result" in data:
+        if data.get("success") and "result" in data:
             output = data["result"]
             
         else:
