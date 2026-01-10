@@ -262,11 +262,9 @@ import aiohttp
 VALID_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 
 async def blurface_handler(event, client):
-    # hanya di chat private
     if not event.is_private:
         return
 
-    # hanya userbot sendiri
     me = await client.get_me()
     if event.sender_id != me.id:
         return
@@ -282,7 +280,17 @@ async def blurface_handler(event, client):
     elif event.is_reply:
         reply_msg = await event.get_reply_message()
         if reply_msg.photo:
-            image_url = await client.download_media(reply_msg, file=bytes)
+            # download ke path lokal
+            path = await client.download_media(reply_msg)
+            # upload ke catbox
+            async with aiohttp.ClientSession() as session:
+                with open(path, "rb") as f:
+                    form = aiohttp.FormData()
+                    form.add_field("reqtype", "fileupload")
+                    form.add_field("fileToUpload", f, filename=path.split("/")[-1])
+                    resp = await session.post("https://catbox.moe/user/api.php", data=form)
+                    uploaded_url = (await resp.text()).strip()
+            image_url = uploaded_url
         elif reply_msg.text and ("http://" in reply_msg.text or "https://" in reply_msg.text):
             image_url = reply_msg.text.strip()
         else:
@@ -291,7 +299,15 @@ async def blurface_handler(event, client):
 
     # 3. Kirim foto dengan caption /blurface
     elif event.photo and event.raw_text.strip() == "/blurface":
-        image_url = await client.download_media(event.message, file=bytes)
+        path = await client.download_media(event.message)
+        async with aiohttp.ClientSession() as session:
+            with open(path, "rb") as f:
+                form = aiohttp.FormData()
+                form.add_field("reqtype", "fileupload")
+                form.add_field("fileToUpload", f, filename=path.split("/")[-1])
+                resp = await session.post("https://catbox.moe/user/api.php", data=form)
+                uploaded_url = (await resp.text()).strip()
+        image_url = uploaded_url
 
     else:
         await event.respond("❌ Gunakan `/blurface <link gambar>`, reply foto, reply teks berisi link gambar, atau kirim foto dengan caption `/blurface`.")
@@ -307,9 +323,7 @@ async def blurface_handler(event, client):
 
     try:
         url = f"https://api.siputzx.my.id/api/iloveimg/blurface?image={image_url}"
-        
         await client.send_file(event.chat_id, url, caption="😎 Blur face selesai")
-        
     except Exception as e:
         await event.respond(f"❌ Error blur face: {e}")
 
